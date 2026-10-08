@@ -18,6 +18,7 @@ import '../../../payment/presentation/widgets/add_payment_sheet.dart';
 import '../../../payment/presentation/widgets/payment_list_item.dart';
 import '../providers/debt_providers.dart';
 import '../widgets/debt_progress_card.dart';
+import '../widgets/borrowing_list_item.dart';
 import 'empty_home_screen.dart';
 
 class DebtHomeScreen extends ConsumerWidget {
@@ -38,18 +39,10 @@ class DebtHomeScreen extends ConsumerWidget {
           data: (summary) {
             if (summary == null) return const EmptyHomeScreen();
             // Offer notification onboarding only once a debt actually exists.
-            if (reminders.onboardingDone == null) {
-              return Scaffold(
-                body: reminders.loadError
-                    ? AppErrorState(
-                        onRetry: () => ref
-                            .read(reminderControllerProvider.notifier)
-                            .refresh(),
-                      )
-                    : const AppLoadingState(),
-              );
+            if (reminders.onboardingDone == null && !reminders.loadError) {
+              return Scaffold(body: const AppLoadingState());
             }
-            if (!reminders.onboardingDone!) {
+            if (reminders.onboardingDone == false) {
               return const NotificationOnboardingScreen();
             }
             return Scaffold(
@@ -89,29 +82,33 @@ class DebtHomeScreen extends ConsumerWidget {
                           children: [
                             const Expanded(
                               child: Text(
-                                'ประวัติการจ่าย',
+                                'ประวัติรายการ',
                                 style: AppTypography.title,
                               ),
                             ),
                             Text(
-                              '${summary.payments.length} รายการ',
+                              '${summary.history.length} รายการ',
                               style: AppTypography.caption,
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        if (summary.payments.isEmpty)
+                        if (summary.history.isEmpty)
                           const AppCard(
                             color: AppColors.primarySoft,
                             child: AppEmptyState(
-                              title: 'ยังไม่มีประวัติการจ่าย',
-                              message: 'มาบันทึกการจ่ายครั้งแรก\nเพื่อดูความคืบหน้าของคุณ',
+                              title: 'ยังไม่มีประวัติรายการ',
+                              message: 'บันทึกการจ่ายหรือกู้เพิ่ม\nเพื่อเริ่มติดตามบัญชีของคุณ',
                             ),
                           ),
-                        ...summary.payments.map(
-                          (payment) => Padding(
+                        ...summary.history.map(
+                          (entry) => Padding(
                             padding: const EdgeInsets.only(bottom: 12),
-                            child: PaymentListItem(payment: payment),
+                            child: entry.payment != null
+                                ? PaymentListItem(payment: entry.payment!)
+                                : BorrowingListItem(
+                                    borrowing: entry.borrowing!,
+                                  ),
                           ),
                         ),
                         const SizedBox(height: 18),

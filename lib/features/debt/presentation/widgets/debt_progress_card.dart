@@ -13,6 +13,10 @@ import '../../domain/services/debt_summary.dart';
 import 'half_donut_chart.dart';
 import 'debt_summary_row.dart';
 import 'fully_paid_message.dart';
+import '../providers/debt_providers.dart';
+import 'account_avatar.dart';
+import '../sheets/add_borrowing_sheet.dart';
+import '../sheets/customize_account_sheet.dart';
 
 class DebtProgressCard extends ConsumerWidget {
   const DebtProgressCard({super.key, required this.summary});
@@ -23,17 +27,9 @@ class DebtProgressCard extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primarySoft,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.account_balance_wallet_outlined,
-                size: 23,
-                color: AppColors.primaryDark,
-              ),
+            AccountAvatar(
+              iconKey: summary.debt.iconKey,
+              colorKey: summary.debt.colorKey,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -41,18 +37,50 @@ class DebtProgressCard extends ConsumerWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'เมนูหนี้',
-              enabled:
-                  !ref.watch(reminderControllerProvider).busy &&
-                  !ref.watch(reminderControllerProvider).loadError,
-              onSelected: (_) => ReminderSettingsSheet.open(
-                context,
-                summary.debt.id,
-                summary.debt.name,
-              ),
-              itemBuilder: (_) => const [
+              enabled: !ref.watch(paymentActionProvider),
+              onSelected: (value) {
+                switch (value) {
+                  case 'borrow':
+                    AddBorrowingSheet.open(context, summary);
+                  case 'customize':
+                    CustomizeAccountSheet.open(context, summary.debt);
+                  case 'reminders':
+                    ReminderSettingsSheet.open(
+                      context,
+                      summary.debt.id,
+                      summary.debt.name,
+                    );
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'borrow',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.add_circle_outline),
+                    title: Text('กู้เพิ่ม'),
+                    subtitle: Text('เพิ่มยอดหนี้ พร้อมบันทึกประวัติ'),
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'customize',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('ปรับแต่งบัญชี'),
+                    subtitle: Text('ชื่อ ไอคอน และสีบัญชี'),
+                  ),
+                ),
                 PopupMenuItem(
                   value: 'reminders',
-                  child: Text('ตั้งค่าการแจ้งเตือน'),
+                  enabled:
+                      !ref.watch(reminderControllerProvider).busy &&
+                      !ref.watch(reminderControllerProvider).loadError,
+                  child: const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.notifications_outlined),
+                    title: Text('ตั้งค่าการแจ้งเตือน'),
+                  ),
                 ),
               ],
               icon: const Icon(Icons.more_vert, color: AppColors.primaryDark),
@@ -75,7 +103,7 @@ class DebtProgressCard extends ConsumerWidget {
               Text(
                 summary.isPaid
                     ? 'ชำระครบแล้ว! 🎉'
-                    : 'ชำระแล้ว ${(summary.progress * 100).round()}%',
+                    : 'ชำระแล้ว ${summary.progressLabel}%',
                 style: AppTypography.small.copyWith(color: AppColors.text),
               ),
               const SizedBox(height: 6),
@@ -86,7 +114,9 @@ class DebtProgressCard extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'จากยอดเริ่มต้น ${Money.format(summary.debt.initialAmountMinor)}',
+                summary.borrowings.isEmpty
+                    ? 'จากยอดเริ่มต้น ${Money.format(summary.debt.initialAmountMinor)}'
+                    : 'จากยอดหนี้รวม ${Money.format(summary.totalDebt)}',
                 style: AppTypography.small,
                 textAlign: TextAlign.center,
               ),

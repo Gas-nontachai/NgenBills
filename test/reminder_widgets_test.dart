@@ -124,7 +124,7 @@ void main() {
       expect(service.requests, 1);
       expect(repository.done, true);
       expect(find.byType(ReminderSettingsSheet), findsNothing);
-      expect(find.text('ประวัติการจ่าย'), findsOneWidget);
+      expect(find.text('ประวัติรายการ'), findsOneWidget);
       expect(repository.settings, isEmpty);
       await tap(tester, find.text('ตั้งวันครบกำหนดและแจ้งเตือน'));
       expect(find.byType(ReminderSettingsSheet), findsOneWidget);

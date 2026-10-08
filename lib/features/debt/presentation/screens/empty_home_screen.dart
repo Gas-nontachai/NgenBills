@@ -4,13 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
-import '../../../../core/widgets/sprout_illustration.dart';
+import '../../../../core/widgets/app_logo.dart';
 
 class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('เงินบิล', style: AppTypography.h2)),
+    appBar: AppBar(title: const AppBrandTitle()),
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -24,7 +24,13 @@ class EmptyHomeScreen extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SproutIllustration(size: 235, wallet: true),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.primarySoft,
+                          shape: BoxShape.circle,
+                        ),
+                        child: AppLogo(size: 235),
+                      ),
                       const SizedBox(height: 32),
                       const Text(
                         'มาเริ่มจัดการ\nหนี้ก้อนแรกกัน',

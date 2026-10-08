@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
+import '../../../../core/widgets/app_logo.dart';
 import '../../../../core/widgets/cards/app_card.dart';
 import '../../../../core/widgets/states/app_empty_state.dart';
 import '../../../../core/widgets/states/app_error_state.dart';
@@ -30,9 +31,7 @@ class DebtHomeScreen extends ConsumerWidget {
         data: (summary) {
           if (summary == null) return const EmptyHomeScreen();
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('เงินบิล', style: AppTypography.h2),
-            ),
+            appBar: AppBar(title: const AppBrandTitle()),
             body: SafeArea(
               child: Center(
                 child: ConstrainedBox(

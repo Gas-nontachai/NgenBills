@@ -29,10 +29,14 @@ dev_dependencies:
   sqflite_common_ffi: ^2.4.3
   integration_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
 
   uses-material-design: true
+
+  assets:
+    - assets/logo.png
 
   fonts:
     - family: Kanit
@@ -42,3 +46,13 @@ flutter:
           weight: 500
         - asset: assets/fonts/Kanit-SemiBold.ttf
           weight: 600
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/logo.png
+  adaptive_icon_background: "#F7F9F5"
+  adaptive_icon_foreground: assets/logo.png
+  adaptive_icon_foreground_inset: 16
+  remove_alpha_ios: true
+  background_color_ios: "#F7F9F5"

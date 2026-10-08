@@ -37,6 +37,19 @@ class DebtProgressCard extends ConsumerWidget {
             ),
             PopupMenuButton<String>(
               tooltip: 'เมนูหนี้',
+              position: PopupMenuPosition.under,
+              offset: const Offset(0, 8),
+              constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
+              padding: EdgeInsets.zero,
+              menuPadding: const EdgeInsets.all(8),
+              color: AppColors.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 8,
+              shadowColor: AppColors.text.withValues(alpha: 0.14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: AppColors.border),
+              ),
               enabled: !ref.watch(paymentActionProvider),
               onSelected: (value) {
                 switch (value) {
@@ -55,31 +68,45 @@ class DebtProgressCard extends ConsumerWidget {
               itemBuilder: (_) => [
                 const PopupMenuItem(
                   value: 'borrow',
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.add_circle_outline),
-                    title: Text('กู้เพิ่ม'),
-                    subtitle: Text('เพิ่มยอดหนี้ พร้อมบันทึกประวัติ'),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: _AccountMenuAction(
+                    icon: Icons.add_rounded,
+                    title: 'กู้เพิ่ม',
+                    subtitle: 'เพิ่มยอดหนี้และบันทึกประวัติ',
+                    prominent: true,
                   ),
+                ),
+                const PopupMenuItem<String>(
+                  enabled: false,
+                  height: 9,
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Divider(height: 9, color: AppColors.border),
                 ),
                 const PopupMenuItem(
                   value: 'customize',
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.edit_outlined),
-                    title: Text('ปรับแต่งบัญชี'),
-                    subtitle: Text('ชื่อ ไอคอน และสีบัญชี'),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: _AccountMenuAction(
+                    icon: Icons.edit_outlined,
+                    title: 'ปรับแต่งบัญชี',
+                    subtitle: 'เปลี่ยนชื่อ ไอคอน และสีบัญชี',
                   ),
                 ),
                 PopupMenuItem(
                   value: 'reminders',
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                   enabled:
                       !ref.watch(reminderControllerProvider).busy &&
                       !ref.watch(reminderControllerProvider).loadError,
-                  child: const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.notifications_outlined),
-                    title: Text('ตั้งค่าการแจ้งเตือน'),
+                  child: _AccountMenuAction(
+                    icon: Icons.notifications_none_rounded,
+                    title: 'ตั้งค่าการแจ้งเตือน',
+                    subtitle: 'จัดการเตือนวันชำระ',
+                    enabled:
+                        !ref.watch(reminderControllerProvider).busy &&
+                        !ref.watch(reminderControllerProvider).loadError,
                   ),
                 ),
               ],
@@ -130,6 +157,68 @@ class DebtProgressCard extends ConsumerWidget {
           const SizedBox(height: 20),
           const FullyPaidMessage(),
         ],
+      ],
+    ),
+  );
+}
+
+class _AccountMenuAction extends StatelessWidget {
+  const _AccountMenuAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.prominent = false,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool prominent;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    opacity: enabled ? 1 : 0.45,
+    child: Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: prominent ? AppColors.primarySoft : AppColors.background,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 22, color: AppColors.primaryDark),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: AppTypography.body.copyWith(
+                  color: AppColors.text,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: AppTypography.caption.copyWith(height: 1.5),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Icon(
+          Icons.chevron_right_rounded,
+          size: 18,
+          color: AppColors.secondary,
+        ),
       ],
     ),
   );

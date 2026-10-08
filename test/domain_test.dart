@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngenbills/core/formatters/currency_formatter.dart';
 import 'package:ngenbills/features/debt/domain/entities/debt.dart';
+import 'package:ngenbills/features/debt/domain/entities/borrowing.dart';
 import 'package:ngenbills/features/debt/domain/services/debt_summary.dart';
 import 'package:ngenbills/features/payment/domain/entities/payment.dart';
 
@@ -67,5 +68,33 @@ void main() {
     payments.removeLast();
     expect(DebtSummary(debt, payments).isPaid, false);
     expect(DebtSummary(debt, payments).remaining, 700000);
+  });
+  test('Mixed history sorts by date, then creation time, then ID', () {
+    final day = DateTime(2026, 1, 2);
+    final sameTime = DateTime.utc(2026, 1, 3);
+    Payment p(String id, DateTime date, DateTime created) => Payment(
+      id: id,
+      debtId: debt.id,
+      amountMinor: 1,
+      date: date,
+      createdAt: created,
+    );
+    Borrowing b(String id, DateTime date, DateTime created) => Borrowing(
+      id: id,
+      debtId: debt.id,
+      amountMinor: 1,
+      date: date,
+      createdAt: created,
+    );
+    final summary = DebtSummary(
+      debt,
+      [p('a', day, sameTime), p('z', DateTime(2026, 1, 1), sameTime)],
+      [
+        b('b', day, sameTime),
+        b('c', day, sameTime.add(const Duration(seconds: 1))),
+      ],
+    );
+    expect(summary.history.map((entry) => entry.id), ['c', 'b', 'a', 'z']);
+    expect(summary.progressLabel, '0');
   });
 }

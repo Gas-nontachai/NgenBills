@@ -29,7 +29,7 @@ class PaymentListItem extends StatelessWidget {
                 backgroundColor: AppColors.primarySoft,
                 radius: 23,
                 child: Icon(
-                  Icons.arrow_upward_rounded,
+                  Icons.arrow_downward_rounded,
                   color: AppColors.primaryDark,
                 ),
               ),
@@ -56,7 +56,7 @@ class PaymentListItem extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  Money.format(payment.amountMinor),
+                  '-${Money.format(payment.amountMinor)}',
                   style: AppTypography.title.copyWith(
                     color: AppColors.primaryDark,
                   ),

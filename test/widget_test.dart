@@ -259,7 +259,7 @@ void main() {
       expect(find.text('ยินดีด้วย! 🎉'), findsOneWidget);
       await tap(tester, 'ตกลง');
       expect(find.text('บัตรเครดิต'), findsOneWidget);
-      expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
+      expect(find.text('ยังไม่มีประวัติรายการ'), findsOneWidget);
       expect(store.debt!.initialAmountMinor, 1000000);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
@@ -283,7 +283,7 @@ void main() {
     expect(find.text('รายละเอียดการจ่าย'), findsOneWidget);
     await tap(tester, 'ลบรายการจ่าย');
     expect(store.payments.length, 1);
-    expect(find.textContaining('ยอดคงเหลือจะถูกคำนวณใหม่'), findsOneWidget);
+    expect(find.textContaining('ยอดคงเหลือจะเพิ่มขึ้น ฿3,000'), findsOneWidget);
     await tap(tester, 'ยกเลิก');
     expect(store.payments.length, 1);
     await tester.tap(find.byType(PaymentListItem));
@@ -363,6 +363,24 @@ void main() {
     await tester.enterText(find.byType(TextFormField).first, '500');
     await tap(tester, 'บันทึกการจ่าย');
     expect(tester.takeException(), isNull);
+    tester.view.resetViewInsets();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(PaymentListItem).first,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await Scrollable.ensureVisible(
+      tester.element(find.byType(PaymentListItem).first),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PaymentListItem).first);
+    await tester.pumpAndSettle();
+    await tap(tester, 'ลบรายการจ่าย');
+    expect(tester.takeException(), isNull);
+    await tap(tester, 'ยกเลิก');
   });
   testWidgets('Error state retries and recovers into empty home', (
     tester,

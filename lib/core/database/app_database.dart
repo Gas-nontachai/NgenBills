@@ -18,8 +18,7 @@ class AppDatabase {
       return await _factory.openDatabase(
         location,
         options: OpenDatabaseOptions(
-          version: 2,
-          onUpgrade: upgradeSchema,
+          version: 1,
           onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
           onCreate: (db, version) => createSchema(db),
         ),

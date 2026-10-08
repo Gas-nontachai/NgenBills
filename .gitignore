@@ -56,3 +56,7 @@ app.*.map.json
 
 # Failed visual-test diagnostics
 /test/failures/
+
+# Generated macOS Flutter integration files
+/macos/Flutter/ephemeral/
+/macos/Flutter/GeneratedPluginRegistrant.swift

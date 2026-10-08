@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'support/reminder_fakes.dart';
+
+import 'package:ngenbills/features/reminders/presentation/reminder_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -120,6 +124,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          reminderRepositoryProvider.overrideWithValue(
+            MemoryReminderRepository(),
+          ),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
           debtRepositoryProvider.overrideWithValue(TestDebts(store)),
           paymentRepositoryProvider.overrideWithValue(TestPayments(store)),
         ],
@@ -306,7 +316,11 @@ void main() {
     expect(find.text('฿0.00'), findsOneWidget);
     final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
     expect(button.onPressed, isNull);
-    await tester.ensureVisible(find.byType(PaymentListItem));
+    await tester.scrollUntilVisible(
+      find.byType(PaymentListItem),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byType(PaymentListItem));
     await tester.pumpAndSettle();
     await tap(tester, 'ลบรายการจ่าย');
@@ -338,6 +352,13 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          reminderRepositoryProvider.overrideWithValue(
+            MemoryReminderRepository(),
+          ),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
+          debtRepositoryProvider.overrideWithValue(TestDebts(Store())),
           debtSummaryProvider.overrideWith((ref) async {
             if (attempts++ == 0) throw StateError('read failed');
             return null;
@@ -357,7 +378,7 @@ void main() {
     final store = Store()..seed();
     await boot(tester, store);
     await tap(tester, 'บันทึกการจ่าย');
-    await tester.tap(find.byIcon(Icons.calendar_today_outlined));
+    await tester.tap(find.byIcon(Icons.calendar_today_outlined).last);
     await tester.pumpAndSettle();
     final picker = tester.widget<DatePickerDialog>(
       find.byType(DatePickerDialog),

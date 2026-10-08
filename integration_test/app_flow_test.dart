@@ -40,6 +40,7 @@ void main() {
 
       try {
         await boot();
+        await tap('ไว้ทีหลัง');
         expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
         await tap('เพิ่มหนี้ก้อนแรก');
         await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
@@ -72,7 +73,11 @@ void main() {
         await tap('บันทึกการจ่าย');
         expect(find.text('ชำระครบแล้ว! 🎉'), findsOneWidget);
         expect(find.text('฿0.00'), findsOneWidget);
-        await tester.ensureVisible(find.byType(PaymentListItem));
+        await tester.scrollUntilVisible(
+          find.byType(PaymentListItem),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         await tap('ลบรายการจ่าย');

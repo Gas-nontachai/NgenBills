@@ -70,10 +70,9 @@ class DebtHomeScreen extends ConsumerWidget {
                     child: ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                       children: [
-                        DebtReminderBanner(summary: summary),
-                        const SizedBox(height: 12),
                         DebtProgressCard(summary: summary),
-                        const SizedBox(height: 20),
+                        const ReminderSyncNotice(),
+                        const SizedBox(height: 16),
                         AppButton(
                           label: summary.isPaid
                               ? 'ชำระครบแล้ว'
@@ -85,7 +84,7 @@ class DebtHomeScreen extends ConsumerWidget {
                               ? null
                               : () => AddPaymentSheet.open(context, summary),
                         ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
                         Row(
                           children: [
                             const Expanded(

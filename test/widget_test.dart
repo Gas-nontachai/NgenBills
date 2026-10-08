@@ -331,6 +331,11 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).first,
     );
+    await Scrollable.ensureVisible(
+      tester.element(find.byType(PaymentListItem)),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(PaymentListItem));
     await tester.pumpAndSettle();
     await tap(tester, 'ลบรายการจ่าย');

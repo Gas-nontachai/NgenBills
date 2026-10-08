@@ -6,6 +6,8 @@ import '../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../domain/reminder_settings.dart';
 import 'reminder_providers.dart';
+import 'due_day_sheet.dart';
+import '../../../app/theme/app_colors.dart';
 
 class ReminderSettingsSheet extends ConsumerStatefulWidget {
   const ReminderSettingsSheet({
@@ -30,10 +32,10 @@ class ReminderSettingsSheet extends ConsumerStatefulWidget {
 }
 
 class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
-  int? _day;
-  int _daysBefore = 3;
+  int? _day = 1;
+  Set<int> _advanceDays = {3};
   TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
-  bool _enabled = false, _onDueDate = true, _busy = false;
+  bool _enabled = true, _onDueDate = true, _busy = false;
 
   @override
   void initState() {
@@ -41,7 +43,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
     final settings = ref.read(reminderControllerProvider).settings;
     if (settings != null && settings.debtId == widget.debtId) {
       _day = settings.dueDay;
-      _daysBefore = settings.daysBefore;
+      _advanceDays = Set.of(settings.advanceDays);
       _time = TimeOfDay(hour: settings.hour, minute: settings.minute);
       _enabled = settings.enabled;
       _onDueDate = settings.remindOnDueDate;
@@ -81,19 +83,23 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
     if (_day == null || _busy) return;
     setState(() => _busy = true);
     try {
-      await ref
-          .read(reminderControllerProvider.notifier)
-          .save(
-            ReminderSettings(
-              debtId: widget.debtId,
-              dueDay: _day!,
-              daysBefore: _daysBefore,
-              hour: _time.hour,
-              minute: _time.minute,
-              enabled: _enabled,
-              remindOnDueDate: _onDueDate,
-            ),
-          );
+      final controller = ref.read(reminderControllerProvider.notifier);
+      if (_enabled &&
+          ref.read(reminderControllerProvider).permissionAllowed != true) {
+        await controller.requestPermission();
+        if (!mounted) return;
+      }
+      await controller.save(
+        ReminderSettings(
+          debtId: widget.debtId,
+          dueDay: _day!,
+          advanceDays: Set.unmodifiable(_advanceDays),
+          hour: _time.hour,
+          minute: _time.minute,
+          enabled: _enabled,
+          remindOnDueDate: _onDueDate,
+        ),
+      );
       if (!mounted) return;
       final status = ref.read(reminderControllerProvider);
       final message = status.loadError || status.syncError
@@ -102,6 +108,8 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
           ? 'บันทึกวันครบกำหนดแล้ว · ปิดการแจ้งเตือนอยู่'
           : status.permissionAllowed != true
           ? 'บันทึกการตั้งค่าแล้ว · กรุณาเปิดสิทธิ์แจ้งเตือนในการตั้งค่าของเครื่อง'
+          : _advanceDays.isEmpty && !_onDueDate
+          ? 'บันทึกวันครบกำหนดแล้ว · ไม่ได้เลือกวันแจ้งเตือน'
           : 'บันทึกการตั้งค่าแล้ว · เตือนเวลา ${_time.format(context)}';
       AppSnackBar.show(context, message);
       Navigator.pop(context);
@@ -125,9 +133,15 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.account_balance_wallet_outlined),
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primarySoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.account_balance_wallet_outlined),
+              ),
               title: Text(widget.debtName),
-              subtitle: const Text('ตั้งค่าเตือนวันชำระหนี้ทุกเดือน'),
             ),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
@@ -158,68 +172,135 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
                 icon: const Icon(Icons.settings_outlined),
                 label: const Text('เปิดสิทธิ์ในตั้งค่าของเครื่อง'),
               ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _day,
-              decoration: const InputDecoration(
-                labelText: 'วันครบกำหนดชำระ (ทุกเดือน)',
-                prefixIcon: Icon(Icons.calendar_today_outlined),
-              ),
-              hint: const Text('เลือกวันที่'),
-              items: List.generate(
-                31,
-                (i) => DropdownMenuItem(
-                  value: i + 1,
-                  child: Text(
-                    'วันที่ ${i + 1} ของทุกเดือน',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-              onChanged: _busy ? null : (day) => setState(() => _day = day),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'เดือนที่ไม่มีวันที่เลือก จะใช้วันสุดท้ายของเดือน',
-                style: TextStyle(fontSize: 12),
-              ),
+            const Divider(height: 24, color: AppColors.border),
+            const Text(
+              'วันครบกำหนดชำระ:',
+              style: TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              isExpanded: true,
-              initialValue: _daysBefore,
-              decoration: const InputDecoration(
-                labelText: 'แจ้งเตือนล่วงหน้า',
-                prefixIcon: Icon(Icons.notifications_outlined),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                alignment: Alignment.centerLeft,
+                backgroundColor: AppColors.surface,
+                foregroundColor: AppColors.text,
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                padding: const EdgeInsets.all(14),
               ),
-              items: const [0, 1, 3, 7]
-                  .map(
-                    (days) => DropdownMenuItem(
-                      value: days,
-                      child: Text(
-                        days == 0
-                            ? 'ไม่แจ้งเตือนล่วงหน้า'
-                            : '$days วันก่อนครบกำหนด',
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _busy
+              onPressed: _busy
                   ? null
-                  : (days) => setState(() => _daysBefore = days!),
+                  : () async {
+                      final day = await DueDaySheet.open(context, _day);
+                      if (day != null && mounted) setState(() => _day = day);
+                    },
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Row(
+                children: [
+                  Expanded(
+                    child: Text(_day == null ? 'เลือกวันที่' : 'วันที่ $_day'),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
+            const Text('แจ้งเตือนเมื่อไหร่ (เลือกได้มากกว่า 1)'),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final single =
+                    constraints.maxWidth < 280 ||
+                    MediaQuery.textScalerOf(context).scale(16) > 24;
+                return Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [7, 3, 1, 0].map((days) {
+                    final selected = days == 0
+                        ? _onDueDate
+                        : _advanceDays.contains(days);
+                    return SizedBox(
+                      width: single
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 8) / 2,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 12,
+                          ),
+                          backgroundColor: selected
+                              ? AppColors.primarySoft
+                              : AppColors.surface,
+                          side: BorderSide(
+                            color: selected
+                                ? AppColors.primaryDark
+                                : AppColors.border,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                if (days == 0) {
+                                  _onDueDate = !_onDueDate;
+                                } else if (selected) {
+                                  _advanceDays.remove(days);
+                                } else {
+                                  _advanceDays.add(days);
+                                }
+                              }),
+                        child: Semantics(
+                          checked: selected,
+                          child: Row(
+                            children: [
+                              Icon(
+                                selected
+                                    ? Icons.check_box
+                                    : Icons.check_box_outline_blank,
+                                color: selected
+                                    ? AppColors.primaryDark
+                                    : AppColors.secondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  days == 0 ? 'วันครบกำหนด' : '$days วันก่อน',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            const Text('เวลาแจ้งเตือน'),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.surface,
+                foregroundColor: AppColors.text,
+                side: const BorderSide(color: AppColors.border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.all(14),
+              ),
               onPressed: _busy
                   ? null
                   : () async {
                       final time = await showTimePicker(
                         context: context,
                         initialTime: _time,
-                        initialEntryMode: TimePickerEntryMode.input,
+                        initialEntryMode: TimePickerEntryMode.dial,
                         builder: (context, child) => MediaQuery(
                           data: MediaQuery.of(context)
                               .copyWith(alwaysUse24HourFormat: true),
@@ -233,16 +314,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
                 'เวลาแจ้งเตือน ${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')} น.',
               ),
             ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('แจ้งเตือนซ้ำในวันครบกำหนด'),
-              value: _onDueDate,
-              onChanged: _busy
-                  ? null
-                  : (value) => setState(() => _onDueDate = value!),
-            ),
-            if (_daysBefore == 0 && !_onDueDate)
+            if (_advanceDays.isEmpty && !_onDueDate)
               const Text('ไม่ได้เลือกวันเตือน จะบันทึกเฉพาะวันครบกำหนด'),
             const Text(
               'เวลาที่เลือกเป็นเวลาเป้าหมาย การประหยัดแบตเตอรี่อาจทำให้แจ้งเตือนช้าลง',

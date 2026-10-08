@@ -51,6 +51,13 @@ class DebtReminderBanner extends ConsumerWidget {
         ? null
         : ReminderSchedule.nextDueDate(settings, now);
     final days = due == null ? null : ReminderSchedule.daysUntil(due, now);
+    final countdownColor = summary.isPaid || days == null
+        ? AppColors.text
+        : days <= 3
+        ? AppColors.dueUrgent
+        : days <= 7
+        ? AppColors.dueSoon
+        : AppColors.text;
     final subtitle = summary.isPaid
         ? 'ชำระครบแล้ว · หยุดแจ้งเตือน'
         : settings == null
@@ -59,56 +66,139 @@ class DebtReminderBanner extends ConsumerWidget {
         ? 'ปิดการแจ้งเตือนอยู่'
         : status.permissionAllowed == false
         ? 'ยังไม่ได้รับอนุญาตแจ้งเตือน'
-        : settings.daysBefore == 0 && !settings.remindOnDueDate
+        : settings.advanceDays.isEmpty && !settings.remindOnDueDate
         ? 'ไม่ได้เลือกวันแจ้งเตือน'
         : null;
-    return Column(
-      children: [
-        AppCard(
-          color: AppColors.primarySoft,
-          child: InkWell(
-            onTap: status.busy || status.loadError
-                ? null
-                : () => ReminderSettingsSheet.open(
-                    context,
-                    summary.debt.id,
-                    summary.debt.name,
-                  ),
-            borderRadius: BorderRadius.circular(12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.calendar_today_outlined,
-                  color: AppColors.primaryDark,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        settings == null
-                            ? 'ตั้งวันครบกำหนดและแจ้งเตือน'
-                            : 'ครบกำหนดวันที่ ${settings.dueDay} ของเดือน',
-                      ),
-                      if (subtitle != null)
-                        Text(subtitle, style: const TextStyle(fontSize: 12)),
-                    ],
-                  ),
-                ),
-                if (days != null && !summary.isPaid)
-                  Text(
-                    days == 0 ? 'วันนี้' : 'อีก $days วัน',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                const Icon(Icons.chevron_right, size: 20),
-              ],
+    final advance = settings?.advanceDays.toList() ?? <int>[];
+    advance.sort((a, b) => b.compareTo(a));
+    final parts = [
+      if (advance.isNotEmpty) '${advance.join('/')} วันก่อน',
+      if (settings?.remindOnDueDate ?? false) 'วันชำระ',
+    ];
+    final time = settings == null
+        ? ''
+        : '${settings.hour.toString().padLeft(2, '0')}:${settings.minute.toString().padLeft(2, '0')} น.';
+    Widget cell(
+      IconData icon,
+      String label,
+      String value, {
+      bool emphasis = false,
+      Color? textColor,
+    }) => Semantics(
+      label: label,
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.secondary, size: 16),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: emphasis ? 13 : 12,
+                height: 1.4,
+                fontWeight: emphasis ? FontWeight.w500 : FontWeight.w400,
+                color:
+                    textColor ??
+                    (emphasis ? AppColors.text : AppColors.secondary),
+              ),
             ),
           ),
+        ],
+      ),
+    );
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: AppColors.border)),
+      ),
+      child: InkWell(
+        onTap: status.busy || status.loadError
+            ? null
+            : () => ReminderSettingsSheet.open(
+                context,
+                summary.debt.id,
+                summary.debt.name,
+              ),
+        borderRadius: BorderRadius.circular(8),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: settings == null
+                ? Row(
+                    children: [
+                      Expanded(
+                        child: cell(
+                          Icons.calendar_today_outlined,
+                          'ครบกำหนด',
+                          'ตั้งวันครบกำหนดและแจ้งเตือน',
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: AppColors.secondary,
+                      ),
+                    ],
+                  )
+                : LayoutBuilder(
+                    builder: (context, constraints) {
+                      final dueCell = cell(
+                        Icons.calendar_today_outlined,
+                        'ครบกำหนด',
+                        summary.isPaid
+                            ? 'ชำระครบแล้ว'
+                            : days == 0
+                            ? 'วันนี้'
+                            : 'อีก $days วัน',
+                        emphasis: true,
+                        textColor: countdownColor,
+                      );
+                      final reminderCell = cell(
+                        Icons.notifications_outlined,
+                        'แจ้งเตือน',
+                        subtitle ?? '${parts.join(' · ')}\n$time',
+                      );
+                      if (constraints.maxWidth < 280 ||
+                          MediaQuery.textScalerOf(context).scale(16) > 22) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  dueCell,
+                                  const SizedBox(height: 8),
+                                  reminderCell,
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.chevron_right,
+                              size: 16,
+                              color: AppColors.secondary,
+                            ),
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(flex: 4, child: dueCell),
+                          const SizedBox(width: 12),
+                          Expanded(flex: 7, child: reminderCell),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.chevron_right,
+                            size: 16,
+                            color: AppColors.secondary,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
         ),
-        const SizedBox(height: 8),
-        const ReminderSyncNotice(),
-      ],
+      ),
     );
   }
 }

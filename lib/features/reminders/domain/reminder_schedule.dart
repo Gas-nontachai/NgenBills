@@ -61,7 +61,7 @@ abstract final class ReminderSchedule {
         settings.dueDay,
       );
       final offsets = [
-        if (settings.daysBefore > 0) settings.daysBefore,
+        ...settings.advanceDays,
         if (settings.remindOnDueDate) 0,
       ];
       for (final offset in offsets) {
@@ -82,8 +82,8 @@ abstract final class ReminderSchedule {
             : 'อีก $offset วันถึงวันชำระ';
         result.add(
           ScheduledReminder(
-            // One debt in this MVP; IDs identify the due month + reminder kind.
-            id: (due.year * 12 + due.month) * 2 + (offset == 0 ? 0 : 1),
+            // One debt in this MVP; IDs identify the due month + reminder offset.
+            id: (due.year * 12 + due.month) * 8 + offset,
             at: at,
             dueDate: due,
             daysBefore: offset,
@@ -97,6 +97,6 @@ abstract final class ReminderSchedule {
       }
     }
     result.sort((a, b) => a.at.compareTo(b.at));
-    return result;
+    return result.take(60).toList();
   }
 }

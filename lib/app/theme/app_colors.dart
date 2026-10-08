@@ -12,5 +12,7 @@ abstract final class AppColors {
   static const success = Color(0xFF568363);
   static const error = Color(0xFFC95D68);
   static const errorSoft = Color(0xFFFBECEF);
+  static const dueSoon = Color(0xFF9C6B09);
+  static const dueUrgent = Color(0xFFB5474F);
   static const gold = Color(0xFFE4C477);
 }

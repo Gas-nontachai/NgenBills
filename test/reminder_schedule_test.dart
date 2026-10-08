@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ngenbills/features/payment/domain/entities/payment.dart';
 import 'package:ngenbills/features/debt/domain/entities/debt.dart';
 import 'package:ngenbills/features/debt/domain/services/debt_summary.dart';
 import 'package:ngenbills/features/reminders/domain/reminder_schedule.dart';
@@ -54,6 +55,59 @@ void main() {
     },
   );
 
+  test('Multiple offsets schedule nearest 60 with unique stable IDs', () {
+    final now = tz.TZDateTime(tz.getLocation('Asia/Bangkok'), 2026, 10, 8);
+    final schedule = ReminderSchedule.build(
+      summary: reminderDebt(),
+      settings: const ReminderSettings(
+        debtId: 'debt',
+        dueDay: 27,
+        advanceDays: {1, 7, 3},
+        enabled: true,
+      ),
+      now: now,
+    );
+    expect(schedule, hasLength(60));
+    expect(schedule.map((r) => r.id).toSet(), hasLength(60));
+    expect(schedule.take(4).map((r) => r.daysBefore), [7, 3, 1, 0]);
+    for (var i = 1; i < schedule.length; i++) {
+      expect(schedule[i].at.isAfter(schedule[i - 1].at), true);
+    }
+    final reversed = ReminderSchedule.build(
+      summary: reminderDebt(),
+      settings: const ReminderSettings(
+        debtId: 'debt',
+        dueDay: 27,
+        advanceDays: {3, 7, 1},
+        enabled: true,
+      ),
+      now: now,
+    );
+    expect(reversed.map((r) => r.id), schedule.map((r) => r.id));
+    final paid = DebtSummary(reminderDebt().debt, [
+      Payment(
+        id: 'p',
+        debtId: 'debt',
+        amountMinor: 1000000,
+        date: DateTime.utc(2026),
+        createdAt: DateTime.utc(2026),
+      ),
+    ]);
+    expect(
+      ReminderSchedule.build(
+        summary: paid,
+        settings: const ReminderSettings(
+          debtId: 'debt',
+          dueDay: 27,
+          advanceDays: {1, 3, 7},
+          enabled: true,
+        ),
+        now: now,
+      ),
+      isEmpty,
+    );
+  });
+
   test(
     '31 clamps to month end, including leap February; advance can cross year',
     () {
@@ -66,7 +120,7 @@ void main() {
         settings: const ReminderSettings(
           debtId: 'debt',
           dueDay: 2,
-          daysBefore: 7,
+          advanceDays: {7},
           enabled: true,
         ),
         now: tz.TZDateTime(zone, 2026, 12, 20),
@@ -119,7 +173,7 @@ void main() {
         const ReminderSettings(
           debtId: 'debt',
           dueDay: 27,
-          daysBefore: 0,
+          advanceDays: {},
           enabled: true,
         ),
       ),
@@ -141,7 +195,7 @@ void main() {
         const ReminderSettings(
           debtId: 'debt',
           dueDay: 27,
-          daysBefore: 0,
+          advanceDays: {},
           enabled: true,
           remindOnDueDate: false,
         ),
@@ -162,7 +216,7 @@ void main() {
         debtId: 'debt',
         dueDay: 10,
         enabled: true,
-        daysBefore: 3,
+        advanceDays: {3},
         hour: 9,
         minute: 12,
       );

@@ -11,7 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
-    'Native scheduling: replace 24 months, update amount and cancel',
+    'Native scheduling: replace multi-offset schedule, update amount and cancel',
     (tester) async {
       final service = LocalNotificationService(onTap: () {});
       final plugin = FlutterLocalNotificationsPlugin();
@@ -27,6 +27,7 @@ void main() {
       );
       final settings = ReminderSettings(
         debtId: debt.id,
+        advanceDays: const {1, 3, 7},
         dueDay: DateTime(now.year, now.month + 1, 0).day,
         enabled: true,
         hour: 23,

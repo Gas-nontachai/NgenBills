@@ -2,7 +2,7 @@ class ReminderSettings {
   const ReminderSettings({
     required this.debtId,
     required this.dueDay,
-    this.daysBefore = 3,
+    this.advanceDays = const {3},
     this.hour = 9,
     this.minute = 0,
     this.enabled = false,
@@ -10,13 +10,14 @@ class ReminderSettings {
   });
 
   final String debtId;
-  final int dueDay, daysBefore, hour, minute;
+  final int dueDay, hour, minute;
+  final Set<int> advanceDays;
   final bool enabled, remindOnDueDate;
 
   void validate() {
     if (dueDay < 1 ||
         dueDay > 31 ||
-        !const [0, 1, 3, 7].contains(daysBefore) ||
+        !advanceDays.every(const {1, 3, 7}.contains) ||
         hour < 0 ||
         hour > 23 ||
         minute < 0 ||
@@ -28,7 +29,7 @@ class ReminderSettings {
   ReminderSettings withEnabled(bool value) => ReminderSettings(
     debtId: debtId,
     dueDay: dueDay,
-    daysBefore: daysBefore,
+    advanceDays: Set.unmodifiable(advanceDays),
     hour: hour,
     minute: minute,
     enabled: value,
@@ -38,7 +39,10 @@ class ReminderSettings {
   Map<String, Object?> toMap() => {
     'debt_id': debtId,
     'due_day': dueDay,
-    'days_before': daysBefore,
+    'advance_days_mask':
+        (advanceDays.contains(1) ? 1 : 0) |
+        (advanceDays.contains(3) ? 2 : 0) |
+        (advanceDays.contains(7) ? 4 : 0),
     'hour': hour,
     'minute': minute,
     'enabled': enabled ? 1 : 0,
@@ -49,7 +53,11 @@ class ReminderSettings {
       ReminderSettings(
         debtId: row['debt_id'] as String,
         dueDay: row['due_day'] as int,
-        daysBefore: row['days_before'] as int,
+        advanceDays: Set.unmodifiable({
+          if ((row['advance_days_mask'] as int) & 1 != 0) 1,
+          if ((row['advance_days_mask'] as int) & 2 != 0) 3,
+          if ((row['advance_days_mask'] as int) & 4 != 0) 7,
+        }),
         hour: row['hour'] as int,
         minute: row['minute'] as int,
         enabled: row['enabled'] == 1,

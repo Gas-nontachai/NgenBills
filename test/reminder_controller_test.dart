@@ -145,7 +145,7 @@ void main() {
         .load(debtId))!;
     expect(stored.enabled, false);
     expect(stored.dueDay, 27);
-    expect(stored.daysBefore, 3);
+    expect(stored.advanceDays, {3});
   });
 
   test(

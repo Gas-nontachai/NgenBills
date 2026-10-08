@@ -34,6 +34,8 @@ void main() {
       Future<void> tap(String text) async {
         final target = find.text(text).last;
         await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(target);
         await tester.tap(target);
         await tester.pumpAndSettle();
       }
@@ -60,6 +62,11 @@ void main() {
         await boot();
         expect(find.text('฿7,000'), findsNWidgets(2));
         expect(find.byType(PaymentListItem), findsOneWidget);
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(PaymentListItem)),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         expect(find.text('฿3,000.50'), findsWidgets);
@@ -79,6 +86,11 @@ void main() {
           200,
           scrollable: find.byType(Scrollable).first,
         );
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(PaymentListItem)),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         await tap('ลบรายการจ่าย');

@@ -6,9 +6,7 @@ import '../../../app/theme/app_typography.dart';
 import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/cards/app_card.dart';
 import '../../../core/widgets/feedback/app_snackbar.dart';
-import '../../debt/presentation/providers/debt_providers.dart';
 import 'reminder_providers.dart';
-import 'reminder_settings_sheet.dart';
 
 class NotificationOnboardingScreen extends ConsumerStatefulWidget {
   const NotificationOnboardingScreen({super.key});
@@ -21,29 +19,20 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
   bool _busy = false;
   Future<void> _finish(bool enable) async {
     setState(() => _busy = true);
-    // Keep the navigator and messenger before the gate swaps this screen.
-    final navigator = Navigator.of(context);
+    // Keep the messenger before the gate swaps this screen.
     final messenger = ScaffoldMessenger.of(context);
     final container = ProviderScope.containerOf(context);
     try {
       await ref
           .read(reminderControllerProvider.notifier)
           .completeOnboarding(enable: enable);
-      if (enable && navigator.mounted) {
+      if (enable && messenger.mounted) {
         final status = container.read(reminderControllerProvider);
         if (status.permissionAllowed != true) {
           messenger.showSnackBar(
             const SnackBar(
               content: Text('ยังไม่ได้รับอนุญาต เปิดสิทธิ์ได้ใน Settings'),
             ),
-          );
-        }
-        final summary = container.read(debtSummaryProvider).value;
-        if (summary != null && status.settings == null) {
-          await ReminderSettingsSheet.open(
-            navigator.context,
-            summary.debt.id,
-            summary.debt.name,
           );
         }
       }

@@ -94,11 +94,21 @@ void main() {
       expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
       expect(service.requests, 0);
       await tap(tester, find.text('ไว้ทีหลัง'));
+      expect(find.text('ยินดีด้วย! 🎉'), findsOneWidget);
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsOneWidget);
+      await tap(tester, find.text('ตกลง'));
       expect(repository.done, true);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.text('ตั้งวันครบกำหนดและแจ้งเตือน'), findsOneWidget);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+      expect(find.text('ยินดีด้วย! 🎉'), findsNothing);
       expect(service.requests, 0);
     },
   );
@@ -109,6 +119,8 @@ void main() {
       repository.done = false;
       await boot(tester);
       await tap(tester, find.text('เปิดการแจ้งเตือน'));
+      expect(find.text('ยินดีด้วย! 🎉'), findsOneWidget);
+      await tap(tester, find.text('ตกลง'));
       expect(service.requests, 1);
       expect(repository.done, true);
       expect(find.byType(ReminderSettingsSheet), findsNothing);
@@ -338,6 +350,7 @@ void main() {
     repository.done = false;
     await boot(tester, size: const Size(320, 568), scale: 1.8);
     await tap(tester, find.text('ไว้ทีหลัง'));
+    await tap(tester, find.text('ตกลง'));
     await tap(tester, find.text('ตั้งวันครบกำหนดและแจ้งเตือน'));
     expect(tester.takeException(), isNull);
     await tap(tester, find.text('วันที่ 1'));
@@ -366,6 +379,7 @@ void main() {
       matchesGoldenFile(golden('notification_onboarding')),
     );
     await tap(tester, find.text('ไว้ทีหลัง'));
+    await tap(tester, find.text('ตกลง'));
     repository.settings['debt'] = const ReminderSettings(
       debtId: 'debt',
       dueDay: 27,

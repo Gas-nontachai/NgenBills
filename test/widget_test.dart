@@ -254,6 +254,8 @@ void main() {
       expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
       expect(store.debt!.initialAmountMinor, 1000000);
       await tap(tester, 'ไว้ทีหลัง');
+      expect(find.text('ยินดีด้วย! 🎉'), findsOneWidget);
+      await tap(tester, 'ตกลง');
       expect(find.text('บัตรเครดิต'), findsOneWidget);
       expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
       expect(store.debt!.initialAmountMinor, 1000000);

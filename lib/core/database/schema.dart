@@ -5,6 +5,8 @@ Future<void> createSchema(Database db) async {
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL CHECK(length(trim(name)) BETWEEN 1 AND 100),
     initial_amount_minor INTEGER NOT NULL CHECK(initial_amount_minor > 0 AND initial_amount_minor <= 99999999999999),
+    icon_key TEXT NOT NULL DEFAULT 'wallet',
+    color_key TEXT NOT NULL DEFAULT 'green',
     note TEXT CHECK(note IS NULL OR length(note) <= 500),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -20,6 +22,7 @@ Future<void> createSchema(Database db) async {
   await db.execute(
     'CREATE INDEX payments_debt_date ON payments(debt_id, payment_date DESC, created_at DESC)',
   );
+  await createBorrowingSchema(db);
   await createReminderSchema(db);
   await db.execute('''CREATE TABLE app_preferences (
     key TEXT PRIMARY KEY NOT NULL,
@@ -39,17 +42,16 @@ Future<void> createReminderSchema(DatabaseExecutor db) async {
   )''');
 }
 
-Future<void> upgradeSchema(Database db, int oldVersion, int newVersion) async {
-  if (oldVersion < 2) {
-    await db.execute(
-      'ALTER TABLE reminder_settings RENAME TO reminder_settings_v1',
-    );
-    await createReminderSchema(db);
-    await db.execute('''INSERT INTO reminder_settings
-      (debt_id, due_day, advance_days_mask, hour, minute, enabled, remind_on_due_date)
-      SELECT debt_id, due_day,
-        CASE days_before WHEN 1 THEN 1 WHEN 3 THEN 2 WHEN 7 THEN 4 ELSE 0 END,
-        hour, minute, enabled, remind_on_due_date FROM reminder_settings_v1''');
-    await db.execute('DROP TABLE reminder_settings_v1');
-  }
+Future<void> createBorrowingSchema(DatabaseExecutor db) async {
+  await db.execute("""CREATE TABLE borrowings (
+    id TEXT PRIMARY KEY NOT NULL,
+    debt_id TEXT NOT NULL REFERENCES debts(id) ON DELETE CASCADE,
+    amount_minor INTEGER NOT NULL CHECK(amount_minor > 0 AND amount_minor <= 99999999999999),
+    borrowing_date TEXT NOT NULL,
+    note TEXT CHECK(note IS NULL OR length(note) <= 500),
+    created_at TEXT NOT NULL
+  )""");
+  await db.execute(
+    'CREATE INDEX borrowings_debt_date ON borrowings(debt_id, borrowing_date DESC, created_at DESC)',
+  );
 }

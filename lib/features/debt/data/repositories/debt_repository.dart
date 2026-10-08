@@ -4,6 +4,8 @@ import '../../../../core/database/app_database.dart';
 import '../../../../core/errors/app_exception.dart';
 import '../../../../core/formatters/currency_formatter.dart';
 import '../../domain/entities/debt.dart';
+import '../../domain/entities/borrowing.dart';
+import '../../domain/entities/account_appearance.dart';
 import '../../domain/services/debt_summary.dart';
 import '../../../payment/domain/entities/payment.dart';
 
@@ -26,9 +28,15 @@ class DebtRepository {
         whereArgs: [debt.id],
         orderBy: 'payment_date DESC, created_at DESC, id DESC',
       );
+      final borrowingRows = await txn.query(
+        'borrowings',
+        where: 'debt_id = ?',
+        whereArgs: [debt.id],
+      );
       return DebtSummary(
         debt,
         rows.map(Payment.fromMap).toList(growable: false),
+        borrowingRows.map(Borrowing.fromMap).toList(growable: false),
       );
     });
   }
@@ -63,5 +71,44 @@ class DebtRepository {
         'updated_at': now,
       });
     });
+  }
+
+  Future<void> customize({
+    required String debtId,
+    required String name,
+    required String iconKey,
+    required String colorKey,
+  }) async {
+    final clean = name.trim();
+    if (clean.isEmpty || clean.length > 100) {
+      throw const AppException('ชื่อบัญชีต้องมี 1–100 ตัวอักษร');
+    }
+    if (!AccountAppearance.iconKeys.contains(iconKey) ||
+        !AccountAppearance.colorKeys.contains(colorKey)) {
+      throw const AppException('ไอคอนหรือสีไม่ถูกต้อง');
+    }
+    final db = await database.instance;
+    await db.transaction((txn) async {
+      final count = await txn.update(
+        'debts',
+        {
+          'name': clean,
+          'icon_key': iconKey,
+          'color_key': colorKey,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        where: 'id = ?',
+        whereArgs: [debtId],
+      );
+      if (count == 0) throw const AppException('ไม่พบบัญชีนี้');
+    });
+  }
+
+  Future<bool> delete(String debtId) async {
+    final db = await database.instance;
+    return db.transaction(
+      (txn) async =>
+          await txn.delete('debts', where: 'id = ?', whereArgs: [debtId]) > 0,
+    );
   }
 }

@@ -36,10 +36,19 @@ jobs:
         with:
           flutter-version: '3.47.6'
           channel: stable
+          cache: true
       - run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
       - run: flutter pub get --enforce-lockfile
       - run: flutter analyze
       - run: flutter test
+      - name: Upload visual test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-test-failures
+          path: test/failures/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build signed APK
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

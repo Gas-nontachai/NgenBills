@@ -34,6 +34,8 @@ void main() {
       Future<void> tap(String text) async {
         final target = find.text(text).last;
         await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(target);
         await tester.tap(target);
         await tester.pumpAndSettle();
       }
@@ -45,6 +47,8 @@ void main() {
         await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
         await tester.enterText(find.byType(TextFormField).at(1), '10000.50');
         await tap('สร้างหนี้ก้อนแรก');
+        expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
+        await tap('ไว้ทีหลัง');
         await tap('บันทึกการจ่าย');
         await tester.enterText(find.byType(TextFormField).first, '3000.50');
         await tester.pumpAndSettle();
@@ -58,6 +62,11 @@ void main() {
         await boot();
         expect(find.text('฿7,000'), findsNWidgets(2));
         expect(find.byType(PaymentListItem), findsOneWidget);
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(PaymentListItem)),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         expect(find.text('฿3,000.50'), findsWidgets);
@@ -72,7 +81,16 @@ void main() {
         await tap('บันทึกการจ่าย');
         expect(find.text('ชำระครบแล้ว! 🎉'), findsOneWidget);
         expect(find.text('฿0.00'), findsOneWidget);
-        await tester.ensureVisible(find.byType(PaymentListItem));
+        await tester.scrollUntilVisible(
+          find.byType(PaymentListItem),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(PaymentListItem)),
+          alignment: 0.5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         await tap('ลบรายการจ่าย');

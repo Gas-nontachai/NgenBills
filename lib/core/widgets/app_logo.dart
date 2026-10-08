@@ -24,9 +24,15 @@ class AppBrandTitle extends StatelessWidget {
   Widget build(BuildContext context) => const Row(
     mainAxisSize: MainAxisSize.min,
     children: [
-      AppLogo(),
+      AppLogo(size: 40),
       SizedBox(width: 8),
-      Text('เงินบิล', style: AppTypography.h2),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('เงินบิล', style: AppTypography.h2),
+          Text('NgenBills', style: AppTypography.caption),
+        ],
+      ),
     ],
   );
 }

@@ -1,7 +1,7 @@
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
-import 'migrations/schema_v1.dart';
+import 'schema.dart';
 
 class AppDatabase {
   AppDatabase({DatabaseFactory? factory, String? databasePath})
@@ -18,12 +18,10 @@ class AppDatabase {
       return await _factory.openDatabase(
         location,
         options: OpenDatabaseOptions(
-          version: 1,
+          version: 2,
+          onUpgrade: upgradeSchema,
           onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
-          onCreate: (db, version) => createSchemaV1(db),
-          onUpgrade: (db, oldVersion, newVersion) async {
-            // Add ordered, non-destructive version migrations here.
-          },
+          onCreate: (db, version) => createSchema(db),
         ),
       );
     } catch (_) {

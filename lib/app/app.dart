@@ -9,7 +9,7 @@ class NgenBillsApp extends ConsumerWidget {
   const NgenBillsApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-    title: 'เงินบิล — NgenBills',
+    title: 'เงินบิล - NgenBills',
     debugShowCheckedModeBanner: false,
     theme: appTheme(),
     locale: const Locale('th'),

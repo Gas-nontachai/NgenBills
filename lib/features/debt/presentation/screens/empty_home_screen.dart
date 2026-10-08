@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
+import '../../../reminders/presentation/reminder_widgets.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
@@ -10,16 +11,6 @@ class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const AppBrandTitle(),
-      actions: [
-        IconButton(
-          tooltip: 'การแจ้งเตือน',
-          icon: const Icon(Icons.settings_outlined),
-          onPressed: () => context.push('/settings/notifications'),
-        ),
-      ],
-    ),
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(
@@ -53,6 +44,7 @@ class EmptyHomeScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 28),
+                      const ReminderSyncNotice(),
                       AppButton(
                         label: 'เพิ่มหนี้ก้อนแรก',
                         icon: Icons.add_circle_outline_rounded,

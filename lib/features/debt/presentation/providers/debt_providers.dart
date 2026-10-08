@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/database/app_database.dart';
 import '../../data/repositories/debt_repository.dart';
+import '../../data/repositories/borrowing_repository.dart';
 import '../../domain/services/debt_summary.dart';
 import '../../../payment/data/repositories/payment_repository.dart';
+
+final debtClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final database = AppDatabase();
@@ -15,6 +18,9 @@ final debtRepositoryProvider = Provider(
 );
 final paymentRepositoryProvider = Provider(
   (ref) => PaymentRepository(ref.watch(databaseProvider)),
+);
+final borrowingRepositoryProvider = Provider(
+  (ref) => BorrowingRepository(ref.watch(databaseProvider)),
 );
 final debtSummaryProvider = FutureProvider<DebtSummary?>(
   (ref) => ref.watch(debtRepositoryProvider).load(),

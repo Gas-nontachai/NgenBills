@@ -19,13 +19,54 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
   bool _busy = false;
   Future<void> _finish(bool enable) async {
     setState(() => _busy = true);
-    // Keep the messenger before the gate swaps this screen.
+    // Keep app-level handles before the gate swaps this screen.
     final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context, rootNavigator: true);
     final container = ProviderScope.containerOf(context);
     try {
       await ref
           .read(reminderControllerProvider.notifier)
           .completeOnboarding(enable: enable);
+      if (navigator.mounted) {
+        await showDialog<void>(
+          context: navigator.context,
+          barrierDismissible: false,
+          builder: (dialogContext) => PopScope(
+            canPop: false,
+            child: AlertDialog(
+              scrollable: true,
+              title: const Text(
+                'ยินดีด้วย! 🎉',
+                style: AppTypography.h2,
+                textAlign: TextAlign.center,
+              ),
+              content: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.celebration_rounded,
+                    size: 64,
+                    color: AppColors.primaryDark,
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'คุณเริ่มต้นจัดการหนี้ก้อนแรกแล้ว\n'
+                    'ก้าวแรกสำเร็จแล้ว มาค่อย ๆ ไปด้วยกันนะ 🌱',
+                    style: AppTypography.body,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                AppButton(
+                  label: 'ตกลง',
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       if (enable && messenger.mounted) {
         final status = container.read(reminderControllerProvider);
         if (status.permissionAllowed != true) {

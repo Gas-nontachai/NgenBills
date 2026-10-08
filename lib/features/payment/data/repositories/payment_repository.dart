@@ -38,8 +38,13 @@ class PaymentRepository {
         'SELECT COALESCE(SUM(amount_minor), 0) AS paid FROM payments WHERE debt_id = ?',
         [debtId],
       );
+      final borrowed = await txn.rawQuery(
+        'SELECT COALESCE(SUM(amount_minor), 0) AS total FROM borrowings WHERE debt_id = ?',
+        [debtId],
+      );
       final remaining =
-          (rows.first['initial_amount_minor'] as int) -
+          (rows.first['initial_amount_minor'] as int) +
+          (borrowed.first['total'] as int) -
           (totals.first['paid'] as int);
       if (amountMinor > remaining) {
         throw AppException(

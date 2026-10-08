@@ -90,6 +90,47 @@ void main() {
     },
   );
 
+  test('Borrowing after payoff restarts reminders and deleting account cancels them', () async {
+    await controller.completeOnboarding(enable: false);
+    await controller.save(settings());
+    await container
+        .read(paymentRepositoryProvider)
+        .add(debtId: debtId, amountMinor: 1000000, date: DateTime(2026, 10, 8));
+    await controller.refresh();
+    expect(service.pending, isEmpty);
+    await container
+        .read(borrowingRepositoryProvider)
+        .add(debtId: debtId, amountMinor: 500000, date: DateTime(2026, 10, 8));
+    await controller.refresh();
+    expect(service.pending, isNotEmpty);
+    expect(service.pending.first.body, contains('฿5,000'));
+    await container
+        .read(debtRepositoryProvider)
+        .customize(
+          debtId: debtId,
+          name: 'ชื่อใหม่',
+          iconKey: 'car',
+          colorKey: 'pink',
+        );
+    await controller.refresh();
+    expect(service.pending.first.title, contains('ชื่อใหม่'));
+    service.failSchedule = true;
+    await container.read(debtRepositoryProvider).delete(debtId);
+    await controller.refresh();
+    expect(await container.read(debtRepositoryProvider).load(), isNull);
+    expect(container.read(reminderControllerProvider).syncError, true);
+    service.failSchedule = false;
+    await controller.refresh();
+    expect(service.pending, isEmpty);
+    await container
+        .read(debtRepositoryProvider)
+        .create(name: 'บัญชีใหม่', amountMinor: 100);
+    await controller.refresh();
+    expect(container.read(reminderControllerProvider).onboardingDone, true);
+    expect(container.read(reminderControllerProvider).settings, isNull);
+    expect(service.pending, isEmpty);
+  });
+
   test(
     'Rapid saves and refreshes leave the latest schedule without duplicates',
     () async {

@@ -4,10 +4,12 @@ class Debt {
     required this.name,
     required this.initialAmountMinor,
     this.note,
+    this.iconKey = 'wallet',
+    this.colorKey = 'green',
     required this.createdAt,
     required this.updatedAt,
   });
-  final String id, name;
+  final String id, name, iconKey, colorKey;
   final int initialAmountMinor;
   final String? note;
   final DateTime createdAt, updatedAt;
@@ -16,6 +18,8 @@ class Debt {
     name: row['name'] as String,
     initialAmountMinor: row['initial_amount_minor'] as int,
     note: row['note'] as String?,
+    iconKey: row['icon_key'] as String? ?? 'wallet',
+    colorKey: row['color_key'] as String? ?? 'green',
     createdAt: DateTime.parse(row['created_at'] as String),
     updatedAt: DateTime.parse(row['updated_at'] as String),
   );

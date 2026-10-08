@@ -1,3 +1,5 @@
+import 'package:clock/clock.dart';
+
 abstract final class AppDates {
   static const months = [
     'ม.ค.',
@@ -14,7 +16,7 @@ abstract final class AppDates {
     'ธ.ค.',
   ];
   static DateTime today() {
-    final now = DateTime.now();
+    final now = clock.now();
     return DateTime(now.year, now.month, now.day);
   }
 

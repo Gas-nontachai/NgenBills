@@ -13,12 +13,14 @@ class AppAmountField extends StatelessWidget {
     this.autofocus = false,
     this.enabled = true,
     this.onChanged,
+    this.validator,
   });
   final TextEditingController controller;
   final String label;
   final int? remaining;
   final bool autofocus, enabled;
   final ValueChanged<String>? onChanged;
+  final FormFieldValidator<String>? validator;
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -45,7 +47,8 @@ class AppAmountField extends StatelessWidget {
         style: AppTypography.h2,
         decoration: const InputDecoration(hintText: '0.00'),
         autovalidateMode: AutovalidateMode.onUserInteraction,
-        validator: (value) => Money.validate(value, remaining: remaining),
+        validator:
+            validator ?? (value) => Money.validate(value, remaining: remaining),
         onChanged: onChanged,
       ),
     ],

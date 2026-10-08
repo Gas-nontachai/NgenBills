@@ -25,19 +25,6 @@ class DebtHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reminders = ref.watch(reminderControllerProvider);
-    if (reminders.onboardingDone == null) {
-      return Scaffold(
-        body: reminders.loadError
-            ? AppErrorState(
-                onRetry: () =>
-                    ref.read(reminderControllerProvider.notifier).refresh(),
-              )
-            : const AppLoadingState(),
-      );
-    }
-    if (!reminders.onboardingDone!) {
-      return const NotificationOnboardingScreen();
-    }
     return ref
         .watch(debtSummaryProvider)
         .when(
@@ -50,6 +37,21 @@ class DebtHomeScreen extends ConsumerWidget {
           ),
           data: (summary) {
             if (summary == null) return const EmptyHomeScreen();
+            // Offer notification onboarding only once a debt actually exists.
+            if (reminders.onboardingDone == null) {
+              return Scaffold(
+                body: reminders.loadError
+                    ? AppErrorState(
+                        onRetry: () => ref
+                            .read(reminderControllerProvider.notifier)
+                            .refresh(),
+                      )
+                    : const AppLoadingState(),
+              );
+            }
+            if (!reminders.onboardingDone!) {
+              return const NotificationOnboardingScreen();
+            }
             return Scaffold(
               appBar: AppBar(
                 title: const AppBrandTitle(),

@@ -112,6 +112,7 @@ void main() {
     Store store, {
     Size size = const Size(390, 844),
     double scale = 1,
+    bool onboardingDone = true,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -125,7 +126,7 @@ void main() {
       ProviderScope(
         overrides: [
           reminderRepositoryProvider.overrideWithValue(
-            MemoryReminderRepository(),
+            MemoryReminderRepository(done: onboardingDone),
           ),
           notificationServiceProvider.overrideWithValue(
             FakeNotificationService(),
@@ -235,23 +236,32 @@ void main() {
     }
     semantics.dispose();
   });
-  testWidgets('Empty home, create validation and first debt flow', (
-    tester,
-  ) async {
-    final store = Store();
-    await boot(tester, store);
-    expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
-    await tap(tester, 'เพิ่มหนี้ก้อนแรก');
-    await tap(tester, 'สร้างหนี้ก้อนแรก');
-    expect(find.text('กรุณากรอกชื่อหนี้'), findsOneWidget);
-    expect(store.debt, isNull);
-    await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
-    await tester.enterText(find.byType(TextFormField).at(1), '10000');
-    await tap(tester, 'สร้างหนี้ก้อนแรก');
-    expect(find.text('บัตรเครดิต'), findsOneWidget);
-    expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
-    expect(store.debt!.initialAmountMinor, 1000000);
-  });
+  testWidgets(
+    'Notification onboarding follows successful first debt creation',
+    (tester) async {
+      final store = Store();
+      await boot(tester, store, onboardingDone: false);
+      expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+      await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+      await tap(tester, 'สร้างหนี้ก้อนแรก');
+      expect(find.text('กรุณากรอกชื่อหนี้'), findsOneWidget);
+      expect(store.debt, isNull);
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+      await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
+      await tester.enterText(find.byType(TextFormField).at(1), '10000');
+      await tap(tester, 'สร้างหนี้ก้อนแรก');
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
+      expect(store.debt!.initialAmountMinor, 1000000);
+      await tap(tester, 'ไว้ทีหลัง');
+      expect(find.text('บัตรเครดิต'), findsOneWidget);
+      expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
+      expect(store.debt!.initialAmountMinor, 1000000);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+    },
+  );
   testWidgets('Payment save, details, explicit deletion and recalculation', (
     tester,
   ) async {

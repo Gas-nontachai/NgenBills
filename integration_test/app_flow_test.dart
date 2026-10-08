@@ -40,12 +40,13 @@ void main() {
 
       try {
         await boot();
-        await tap('ไว้ทีหลัง');
         expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
         await tap('เพิ่มหนี้ก้อนแรก');
         await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
         await tester.enterText(find.byType(TextFormField).at(1), '10000.50');
         await tap('สร้างหนี้ก้อนแรก');
+        expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
+        await tap('ไว้ทีหลัง');
         await tap('บันทึกการจ่าย');
         await tester.enterText(find.byType(TextFormField).first, '3000.50');
         await tester.pumpAndSettle();

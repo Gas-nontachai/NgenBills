@@ -42,3 +42,36 @@ SQLite schema version 1 เปิด foreign keys และมี index ตา�
 ไม่มีแก้ไข/ลบหนี้ แก้ไขรายการจ่าย cloud sync หรือ backup ในรุ่นนี้ Web และ desktop ไม่ใช่เป้าหมายของ MVP นี้
 
 Kanit: SIL Open Font License — ดู `assets/fonts/OFL.txt`
+
+
+## Android signing และ GitHub CI/CD
+
+- `ci.yml`: เมื่อ push หรือเปิด PR เข้า `main`/`dev` จะตรวจ release tooling, `flutter analyze` และ `flutter test`
+- `android-release.yml`: เมื่อ push tag `vMAJOR.MINOR.PATCH` ที่อยู่บน `main` จะทดสอบ สร้าง signed release APK ตรวจลายเซ็น และเผยแพร่ GitHub Release พร้อม SHA256 checksum
+- เวอร์ชัน release มาจาก tag; build number มาจาก workflow run number + repository variable `ANDROID_BUILD_NUMBER_OFFSET` (ค่าเริ่มต้น `1`)
+
+Signing ใช้ release key ของ NgenBills โดยเฉพาะ ไม่มี fallback ไปใช้ debug key หากตั้งค่าไม่ครบ release build จะหยุด
+
+Local signing ใช้ `android/key.properties` และ `android/keystores/ngenbills-release.jks` ซึ่งถูก ignore ไว้ และจำกัดสิทธิ์การอ่านเฉพาะเจ้าของ ดูรูปแบบค่าได้ใน `android/key.properties.example` **สำรองไฟล์จริงทั้งสองไว้ในที่เก็บที่ปลอดภัย และใช้ key เดิมสำหรับอัปเดตแอป** ห้าม commit ไฟล์จริงหรือใส่รหัสผ่านใน workflow
+
+GitHub repository ต้องมี encrypted Actions secrets:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+สร้าง signed APK ในเครื่อง:
+
+```sh
+flutter build apk --release
+```
+
+เมื่อต้องการเผยแพร่ release หลัง CI ผ่าน:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+เปลี่ยน tag ตามเวอร์ชันใหม่ที่จะเผยแพร่ ไม่ใช้ tag เดิมซ้ำ Pipeline นี้รองรับ Android; iOS/TestFlight signing ยังไม่ได้ตั้งค่า

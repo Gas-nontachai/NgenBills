@@ -53,3 +53,6 @@ app.*.map.json
 **/*.keystore
 /dist/
 **/__pycache__/
+
+# Failed visual-test diagnostics
+/test/failures/

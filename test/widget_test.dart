@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -372,6 +374,10 @@ void main() {
     expect(store.payments.single.note, 'จ่ายผ่านธนาคาร');
   });
   testWidgets('Visual reference snapshots with bundled Kanit', (tester) async {
+    // Font rasterization differs between macOS and Linux. Keep exact pixel
+    // comparisons against a reviewed baseline from the same host renderer.
+    String golden(String name) =>
+        'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png';
     final fonts = FontLoader('Kanit');
     fonts.addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
     await fonts.load();
@@ -382,12 +388,12 @@ void main() {
     await boot(tester, store);
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/empty_home.png'),
+      matchesGoldenFile(golden('empty_home')),
     );
     await tap(tester, 'เพิ่มหนี้ก้อนแรก');
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/create_debt.png'),
+      matchesGoldenFile(golden('create_debt')),
     );
     await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
     await tester.enterText(find.byType(TextFormField).at(1), '10000');
@@ -397,21 +403,21 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/add_payment.png'),
+      matchesGoldenFile(golden('add_payment')),
     );
     await tap(tester, 'บันทึกการจ่าย');
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/debt_home.png'),
+      matchesGoldenFile(golden('debt_home')),
     );
     await tester.tap(find.byType(PaymentListItem));
     await tester.pumpAndSettle();
     await tap(tester, 'ลบรายการจ่าย');
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/delete_payment.png'),
+      matchesGoldenFile(golden('delete_payment')),
     );
     await tap(tester, 'ยกเลิก');
     await tap(tester, 'บันทึกการจ่าย');
@@ -422,7 +428,7 @@ void main() {
     await tester.pumpAndSettle();
     await expectLater(
       find.byType(NgenBillsApp),
-      matchesGoldenFile('goldens/fully_paid.png'),
+      matchesGoldenFile(golden('fully_paid')),
     );
   });
 }

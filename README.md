@@ -26,7 +26,7 @@ flutter test integration_test/app_flow_test.dart -d <android-device-id>
 
 Integration test ใช้ฐานข้อมูลทดสอบแยกไฟล์และลบหลังจบ ไม่แก้ข้อมูลจริงของแอป ทดสอบสร้างหนี้ จ่ายบางส่วน เปิด SQLite และสร้าง app state ใหม่ ลบรายการ จ่ายครบ และลบเพื่อกลับสู่สถานะยังมีหนี้
 
-Widget tests มีภาพอ้างอิงใน `test/goldens/` สำหรับหน้าจอสำคัญ หากตั้งใจปรับดีไซน์ให้ใช้ `flutter test --update-goldens` แล้วตรวจภาพใหม่ก่อนยอมรับ
+Widget tests มีภาพอ้างอิงใน `test/goldens/` สำหรับหน้าจอสำคัญ หากตั้งใจปรับดีไซน์ให้ใช้ `flutter test --update-goldens` แล้วตรวจภาพใหม่ก่อนยอมรับ ภาพ baseline ของ macOS อยู่ใน `test/goldens/` และของ Linux runner อยู่ใน `test/goldens/linux/` เพื่อเปรียบเทียบกับ renderer ของระบบเดียวกัน
 
 ## โครงสร้างและข้อมูล
 

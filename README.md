@@ -31,13 +31,15 @@ Widget tests มีภาพอ้างอิงใน `test/goldens/` สำ�
 ## โครงสร้างและข้อมูล
 
 - `lib/app`: GoRouter, theme และ design tokens
-- `lib/core`: SQLite schema/migrations, formatters, error handling และ reusable widgets
+- `lib/core`: SQLite schema, formatters, error handling และ reusable widgets
 - `lib/features/debt`: debt repository, summary/domain logic, Riverpod providers และหน้าจอ
 - `lib/features/payment`: payment repository, ประวัติ และ bottom sheets
 
 จำนวนเงินจัดเก็บและคำนวณเป็น integer satang; `0.01` บาทคือ `1` สตางค์ ไม่มี floating-point ในการรวมยอด ยอดรวม/ยอดคงเหลือคำนวณจากรายการจ่าย ไม่เก็บเป็นค่าที่เปลี่ยนแยกกันได้ การเขียนข้อมูลใช้ transaction และตรวจยอดคงเหลือภายใน transaction เพื่อป้องกันการจ่ายเกินยอด การส่งซ้ำใช้ shared action lock
 
-SQLite schema version 1 เปิด foreign keys และมี index ตามหนี้/วันที่ Data model รองรับหลายหนี้ แต่ repository ป้องกันการสร้างหนี้ที่สองตามขอบเขต MVP Timestamp เป็น UTC และวันที่จ่ายเป็น local date-only (`YYYY-MM-DD`) หน้าจอแสดงวันที่ภาษาไทย/พ.ศ.
+SQLite schema version 1 รวมตารางหนี้ รายการจ่าย และการแจ้งเตือนใน schema เริ่มต้นเดียว เปิด foreign keys และมี index ตามหนี้/วันที่ Data model รองรับหลายหนี้ แต่ repository ป้องกันการสร้างหนี้ที่สองตามขอบเขต MVP Timestamp เป็น UTC และวันที่จ่ายเป็น local date-only (`YYYY-MM-DD`) หน้าจอแสดงวันที่ภาษาไทย/พ.ศ.
+
+ช่วงก่อนขึ้น production นี้ใช้ฐานข้อมูลเริ่มต้นใหม่ ไม่มี migration จาก build ทดลองก่อนหน้า หากเคยติดตั้ง build เดิม ต้องล้างข้อมูลแอปหรือติดตั้งใหม่โดยลบข้อมูลเดิมก่อน (ข้อมูลหนี้และรายการจ่ายบนเครื่องนั้นจะถูกลบ) เมื่อเริ่ม release ที่มีผู้ใช้จริง ให้เพิ่ม migration เมื่อเปลี่ยน schema
 
 ไม่มีแก้ไข/ลบหนี้ แก้ไขรายการจ่าย cloud sync หรือ backup ในรุ่นนี้ Web และ desktop ไม่ใช่เป้าหมายของ MVP นี้
 

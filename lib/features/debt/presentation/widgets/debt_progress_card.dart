@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../reminders/presentation/reminder_widgets.dart';
+import '../../../reminders/presentation/reminder_settings_sheet.dart';
+import '../../../reminders/presentation/reminder_providers.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
@@ -9,11 +14,11 @@ import 'half_donut_chart.dart';
 import 'debt_summary_row.dart';
 import 'fully_paid_message.dart';
 
-class DebtProgressCard extends StatelessWidget {
+class DebtProgressCard extends ConsumerWidget {
   const DebtProgressCard({super.key, required this.summary});
   final DebtSummary summary;
   @override
-  Widget build(BuildContext context) => AppCard(
+  Widget build(BuildContext context, WidgetRef ref) => AppCard(
     child: Column(
       children: [
         Row(
@@ -34,6 +39,24 @@ class DebtProgressCard extends StatelessWidget {
             Expanded(
               child: Text(summary.debt.name, style: AppTypography.title),
             ),
+            PopupMenuButton<String>(
+              tooltip: 'เมนูหนี้',
+              enabled:
+                  !ref.watch(reminderControllerProvider).busy &&
+                  !ref.watch(reminderControllerProvider).loadError,
+              onSelected: (_) => ReminderSettingsSheet.open(
+                context,
+                summary.debt.id,
+                summary.debt.name,
+              ),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'reminders',
+                  child: Text('ตั้งค่าการแจ้งเตือน'),
+                ),
+              ],
+              icon: const Icon(Icons.more_vert, color: AppColors.primaryDark),
+            ),
           ],
         ),
         if ((summary.debt.note ?? '').isNotEmpty) ...[
@@ -43,7 +66,7 @@ class DebtProgressCard extends StatelessWidget {
             child: Text(summary.debt.note!, style: AppTypography.small),
           ),
         ],
-        const SizedBox(height: 28),
+        const SizedBox(height: 16),
         HalfDonutChart(
           progress: summary.progress,
           center: Column(
@@ -71,6 +94,8 @@ class DebtProgressCard extends StatelessWidget {
           ),
         ),
         DebtSummaryRow(paid: summary.totalPaid, remaining: summary.remaining),
+        const SizedBox(height: 12),
+        DebtReminderBanner(summary: summary),
         if (summary.isPaid) ...[
           const SizedBox(height: 20),
           const FullyPaidMessage(),

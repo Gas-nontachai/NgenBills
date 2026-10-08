@@ -10,7 +10,16 @@ class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const AppBrandTitle()),
+    appBar: AppBar(
+      title: const AppBrandTitle(),
+      actions: [
+        IconButton(
+          tooltip: 'การแจ้งเตือน',
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => context.push('/settings/notifications'),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(

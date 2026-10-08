@@ -12,6 +12,7 @@ import '../../../../core/widgets/inputs/app_amount_field.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/widgets/sprout_illustration.dart';
 import '../providers/debt_providers.dart';
+import '../../../reminders/presentation/reminder_providers.dart';
 
 class CreateDebtScreen extends ConsumerStatefulWidget {
   const CreateDebtScreen({super.key});
@@ -48,8 +49,12 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                 ),
           );
       if (mounted && saved) {
+        final onboardingDone =
+            ref.read(reminderControllerProvider).onboardingDone == true;
         context.go('/');
-        AppSnackBar.show(context, 'เริ่มต้นได้ดีแล้ว มาค่อย ๆ ไปด้วยกัน 🌱');
+        if (onboardingDone) {
+          AppSnackBar.show(context, 'เริ่มต้นได้ดีแล้ว มาค่อย ๆ ไปด้วยกัน 🌱');
+        }
       }
     } catch (error) {
       if (mounted) AppSnackBar.failure(context, error);

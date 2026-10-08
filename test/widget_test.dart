@@ -1,5 +1,9 @@
 import 'dart:io';
 
+import 'support/reminder_fakes.dart';
+
+import 'package:ngenbills/features/reminders/presentation/reminder_providers.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,6 +112,7 @@ void main() {
     Store store, {
     Size size = const Size(390, 844),
     double scale = 1,
+    bool onboardingDone = true,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -120,6 +125,12 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          reminderRepositoryProvider.overrideWithValue(
+            MemoryReminderRepository(done: onboardingDone),
+          ),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
           debtRepositoryProvider.overrideWithValue(TestDebts(store)),
           paymentRepositoryProvider.overrideWithValue(TestPayments(store)),
         ],
@@ -225,23 +236,32 @@ void main() {
     }
     semantics.dispose();
   });
-  testWidgets('Empty home, create validation and first debt flow', (
-    tester,
-  ) async {
-    final store = Store();
-    await boot(tester, store);
-    expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
-    await tap(tester, 'เพิ่มหนี้ก้อนแรก');
-    await tap(tester, 'สร้างหนี้ก้อนแรก');
-    expect(find.text('กรุณากรอกชื่อหนี้'), findsOneWidget);
-    expect(store.debt, isNull);
-    await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
-    await tester.enterText(find.byType(TextFormField).at(1), '10000');
-    await tap(tester, 'สร้างหนี้ก้อนแรก');
-    expect(find.text('บัตรเครดิต'), findsOneWidget);
-    expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
-    expect(store.debt!.initialAmountMinor, 1000000);
-  });
+  testWidgets(
+    'Notification onboarding follows successful first debt creation',
+    (tester) async {
+      final store = Store();
+      await boot(tester, store, onboardingDone: false);
+      expect(find.text('มาเริ่มจัดการ\nหนี้ก้อนแรกกัน'), findsOneWidget);
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+      await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+      await tap(tester, 'สร้างหนี้ก้อนแรก');
+      expect(find.text('กรุณากรอกชื่อหนี้'), findsOneWidget);
+      expect(store.debt, isNull);
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+      await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
+      await tester.enterText(find.byType(TextFormField).at(1), '10000');
+      await tap(tester, 'สร้างหนี้ก้อนแรก');
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
+      expect(store.debt!.initialAmountMinor, 1000000);
+      await tap(tester, 'ไว้ทีหลัง');
+      expect(find.text('บัตรเครดิต'), findsOneWidget);
+      expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
+      expect(store.debt!.initialAmountMinor, 1000000);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
+    },
+  );
   testWidgets('Payment save, details, explicit deletion and recalculation', (
     tester,
   ) async {
@@ -306,7 +326,16 @@ void main() {
     expect(find.text('฿0.00'), findsOneWidget);
     final button = tester.widget<FilledButton>(find.byType(FilledButton).first);
     expect(button.onPressed, isNull);
-    await tester.ensureVisible(find.byType(PaymentListItem));
+    await tester.scrollUntilVisible(
+      find.byType(PaymentListItem),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await Scrollable.ensureVisible(
+      tester.element(find.byType(PaymentListItem)),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.byType(PaymentListItem));
     await tester.pumpAndSettle();
     await tap(tester, 'ลบรายการจ่าย');
@@ -338,6 +367,13 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          reminderRepositoryProvider.overrideWithValue(
+            MemoryReminderRepository(),
+          ),
+          notificationServiceProvider.overrideWithValue(
+            FakeNotificationService(),
+          ),
+          debtRepositoryProvider.overrideWithValue(TestDebts(Store())),
           debtSummaryProvider.overrideWith((ref) async {
             if (attempts++ == 0) throw StateError('read failed');
             return null;
@@ -357,7 +393,7 @@ void main() {
     final store = Store()..seed();
     await boot(tester, store);
     await tap(tester, 'บันทึกการจ่าย');
-    await tester.tap(find.byIcon(Icons.calendar_today_outlined));
+    await tester.tap(find.byIcon(Icons.calendar_today_outlined).last);
     await tester.pumpAndSettle();
     final picker = tester.widget<DatePickerDialog>(
       find.byType(DatePickerDialog),

@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:clock/clock.dart';
+
 import 'support/reminder_fakes.dart';
 
 import 'package:ngenbills/features/reminders/presentation/reminder_providers.dart';
@@ -254,6 +256,8 @@ void main() {
       expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsOneWidget);
       expect(store.debt!.initialAmountMinor, 1000000);
       await tap(tester, 'ไว้ทีหลัง');
+      expect(find.text('ยินดีด้วย! 🎉'), findsOneWidget);
+      await tap(tester, 'ตกลง');
       expect(find.text('บัตรเครดิต'), findsOneWidget);
       expect(find.text('ยังไม่มีประวัติการจ่าย'), findsOneWidget);
       expect(store.debt!.initialAmountMinor, 1000000);
@@ -409,62 +413,74 @@ void main() {
     expect(store.payments.single.amountMinor, 1);
     expect(store.payments.single.note, 'จ่ายผ่านธนาคาร');
   });
-  testWidgets('Visual reference snapshots with bundled Kanit', (tester) async {
-    // Font rasterization differs between macOS and Linux. Keep exact pixel
-    // comparisons against a reviewed baseline from the same host renderer.
-    String golden(String name) =>
-        'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png';
-    final fonts = FontLoader('Kanit');
-    fonts.addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
-    await fonts.load();
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await icons.load();
-    final store = Store();
-    await boot(tester, store);
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('empty_home')),
-    );
-    await tap(tester, 'เพิ่มหนี้ก้อนแรก');
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('create_debt')),
-    );
-    await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
-    await tester.enterText(find.byType(TextFormField).at(1), '10000');
-    await tap(tester, 'สร้างหนี้ก้อนแรก');
-    await tap(tester, 'บันทึกการจ่าย');
-    await tester.enterText(find.byType(TextFormField).first, '3000');
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('add_payment')),
-    );
-    await tap(tester, 'บันทึกการจ่าย');
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('debt_home')),
-    );
-    await tester.tap(find.byType(PaymentListItem));
-    await tester.pumpAndSettle();
-    await tap(tester, 'ลบรายการจ่าย');
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('delete_payment')),
-    );
-    await tap(tester, 'ยกเลิก');
-    await tap(tester, 'บันทึกการจ่าย');
-    await tester.enterText(find.byType(TextFormField).first, '7000');
-    await tester.pumpAndSettle();
-    await tap(tester, 'บันทึกการจ่าย');
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('fully_paid')),
-    );
-  });
+  testWidgets(
+    'Visual reference snapshots with bundled Kanit',
+    (tester) => withClock(Clock.fixed(DateTime(2026, 10, 8)), () async {
+      // Font rasterization differs between macOS and Linux. Keep exact pixel
+      // comparisons against a reviewed baseline from the same host renderer.
+      String golden(String name) =>
+          'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png';
+      final fonts = FontLoader('Kanit');
+      fonts.addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
+      await fonts.load();
+      final icons = FontLoader('MaterialIcons')
+        ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+      await icons.load();
+      final store = Store();
+      await boot(tester, store);
+      // Image decoding runs outside the fake test clock. Wait for the logo even
+      // when this test runs alone, without an image cached by earlier tests.
+      await tester.runAsync(
+        () => precacheImage(
+          const AssetImage('assets/logo.png'),
+          tester.element(find.byType(NgenBillsApp)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('empty_home')),
+      );
+      await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('create_debt')),
+      );
+      await tester.enterText(find.byType(TextFormField).at(0), 'บัตรเครดิต');
+      await tester.enterText(find.byType(TextFormField).at(1), '10000');
+      await tap(tester, 'สร้างหนี้ก้อนแรก');
+      await tap(tester, 'บันทึกการจ่าย');
+      await tester.enterText(find.byType(TextFormField).first, '3000');
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('add_payment')),
+      );
+      await tap(tester, 'บันทึกการจ่าย');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('debt_home')),
+      );
+      await tester.tap(find.byType(PaymentListItem));
+      await tester.pumpAndSettle();
+      await tap(tester, 'ลบรายการจ่าย');
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('delete_payment')),
+      );
+      await tap(tester, 'ยกเลิก');
+      await tap(tester, 'บันทึกการจ่าย');
+      await tester.enterText(find.byType(TextFormField).first, '7000');
+      await tester.pumpAndSettle();
+      await tap(tester, 'บันทึกการจ่าย');
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(NgenBillsApp),
+        matchesGoldenFile(golden('fully_paid')),
+      );
+    }),
+  );
 }

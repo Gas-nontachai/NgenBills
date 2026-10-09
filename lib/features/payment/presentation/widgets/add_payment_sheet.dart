@@ -9,6 +9,7 @@ import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../debt/domain/services/debt_summary.dart';
 import '../../../debt/presentation/providers/debt_providers.dart';
 import 'payment_form.dart';
+import '../../../debt/presentation/widgets/account_context_header.dart';
 
 class AddPaymentSheet extends ConsumerStatefulWidget {
   const AddPaymentSheet({super.key, required this.summary});
@@ -131,17 +132,26 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
       title: 'บันทึกการจ่าย',
       onClose: _saving ? null : _close,
       onDragClose: _close,
-      child: PaymentForm(
-        formKey: _form,
-        amount: _amount,
-        note: _note,
-        remaining: widget.summary.remaining,
-        date: _date,
-        onDate: _pickDate,
-        onChange: () => setState(() {}),
-        onSave: _save,
-        saving: _saving,
-        valid: _valid,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AccountContextHeader(
+            debtId: widget.summary.debt.id,
+            name: widget.summary.debt.name,
+          ),
+          PaymentForm(
+            formKey: _form,
+            amount: _amount,
+            note: _note,
+            remaining: widget.summary.remaining,
+            date: _date,
+            onDate: _pickDate,
+            onChange: () => setState(() {}),
+            onSave: _save,
+            saving: _saving,
+            valid: _valid,
+          ),
+        ],
       ),
     ),
   );

@@ -43,7 +43,15 @@ class _Debts extends DebtRepository {
   _Debts(this.store) : super(AppDatabase(factory: databaseFactoryFfi));
   final _Store store;
   @override
-  Future<DebtSummary?> load() async => store.summary;
+  Future<DebtSummary?> load([String? debtId]) async => store.summary;
+  @override
+  Future<List<Debt>> list() async => [if (store.debt != null) store.debt!];
+  @override
+  Future<String?> defaultId() async => store.debt?.id;
+  @override
+  Future<List<DebtSummary>> loadAll() async => [
+    if (store.summary != null) store.summary!,
+  ];
   @override
   Future<void> customize({
     required String debtId,
@@ -236,14 +244,22 @@ void main() {
       expect(store.borrowings.single.note, 'ซ่อมรถ');
       await tap(tester, 'ตกลง');
       expect(find.text('จากยอดหนี้รวม ฿135,000'), findsOneWidget);
-      await tester.ensureVisible(find.byType(BorrowingListItem));
+      await Scrollable.ensureVisible(
+        tester.element(find.byType(BorrowingListItem)),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(BorrowingListItem));
       await tester.pumpAndSettle();
       expect(find.text('รายละเอียดการกู้เพิ่ม'), findsOneWidget);
       await tap(tester, 'ลบรายการกู้เพิ่ม');
       await tap(tester, 'ยกเลิก');
       expect(store.borrowings, hasLength(1));
-      await tester.ensureVisible(find.byType(BorrowingListItem));
+      await Scrollable.ensureVisible(
+        tester.element(find.byType(BorrowingListItem)),
+        alignment: .5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(BorrowingListItem));
       await tester.pumpAndSettle();
       await tap(tester, 'ลบรายการกู้เพิ่ม');
@@ -293,14 +309,14 @@ void main() {
     await boot(tester);
     await menu(tester, 'ปรับแต่งบัญชี');
     await tap(tester, 'ลบบัญชีนี้');
-    expect(find.text('ลบบัญชีนี้?'), findsOneWidget);
+    expect(find.text('ลบบัญชี “จ่ายไปเรื่อย”?'), findsOneWidget);
     await tap(tester, 'ยกเลิก');
     expect(store.debt, isNotNull);
     await tap(tester, 'ลบบัญชีนี้');
     store.fail = true;
     await tap(tester, 'ลบอย่างถาวร');
     expect(store.debt, isNotNull);
-    expect(find.text('ลบบัญชีนี้?'), findsOneWidget);
+    expect(find.text('ลบบัญชี “จ่ายไปเรื่อย”?'), findsOneWidget);
     store.fail = false;
     await tap(tester, 'ลบอย่างถาวร');
     expect(store.debt, isNull);

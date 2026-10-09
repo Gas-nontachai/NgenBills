@@ -8,6 +8,7 @@ import '../domain/reminder_settings.dart';
 import 'reminder_providers.dart';
 import 'due_day_sheet.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../debt/presentation/widgets/account_context_header.dart';
 
 class ReminderSettingsSheet extends ConsumerStatefulWidget {
   const ReminderSettingsSheet({
@@ -40,7 +41,9 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
   @override
   void initState() {
     super.initState();
-    final settings = ref.read(reminderControllerProvider).settings;
+    final settings = ref
+        .read(reminderControllerProvider)
+        .forDebt(widget.debtId);
     if (settings != null && settings.debtId == widget.debtId) {
       _day = settings.dueDay;
       _advanceDays = Set.of(settings.advanceDays);
@@ -131,18 +134,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.account_balance_wallet_outlined),
-              ),
-              title: Text(widget.debtName),
-            ),
+            AccountContextHeader(debtId: widget.debtId, name: widget.debtName),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text('เปิดการแจ้งเตือน'),

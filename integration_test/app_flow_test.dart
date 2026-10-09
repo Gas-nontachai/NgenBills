@@ -11,6 +11,7 @@ import 'package:ngenbills/features/debt/data/repositories/debt_repository.dart';
 import 'package:ngenbills/features/debt/presentation/providers/debt_providers.dart';
 import 'package:ngenbills/features/payment/presentation/widgets/payment_list_item.dart';
 import 'package:ngenbills/features/debt/presentation/widgets/borrowing_list_item.dart';
+import 'package:ngenbills/features/debt/presentation/widgets/account_swipe_card.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -33,11 +34,42 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      Future<void> tap(String text) async {
-        final target = find.text(text).last;
-        await tester.ensureVisible(target);
+      Future<void> waitForText(String position) async {
+        for (var i = 0; i < 50 && find.text(position).evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
         await tester.pumpAndSettle();
-        await tester.ensureVisible(target);
+        expect(find.text(position), findsWidgets);
+      }
+
+      Future<void> waitForPosition(String text) async {
+        final target = find.descendant(
+          of: find.byKey(const ValueKey('active-account-card')),
+          matching: find.text(text),
+        );
+        for (var i = 0; i < 50 && target.evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+        await tester.pumpAndSettle();
+        expect(target, findsOneWidget);
+      }
+
+      Future<void> tap(String text) async {
+        await waitForText(text);
+        final target = find.text(text).last;
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+        await tester.pumpAndSettle();
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+        await tester.tap(target);
+        await tester.pump(const Duration(milliseconds: 200));
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> tapMenu() async {
+        await waitForText('ประวัติรายการ');
+        final target = find.byTooltip('เมนูหนี้');
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+        await tester.pumpAndSettle();
         await tester.tap(target);
         await tester.pumpAndSettle();
       }
@@ -105,7 +137,7 @@ void main() {
           -200,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('ปรับแต่งบัญชี');
         await tester.enterText(find.byType(TextFormField), 'รถของเรา');
@@ -115,7 +147,7 @@ void main() {
         await tester.tap(find.byTooltip('ชมพู'));
         await tester.pumpAndSettle();
         await tap('บันทึก');
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('กู้เพิ่ม');
         await tester.enterText(find.byType(TextFormField).first, '5000');
@@ -145,7 +177,7 @@ void main() {
           -200,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('ปรับแต่งบัญชี');
         await tap('ลบบัญชีนี้');
@@ -157,7 +189,99 @@ void main() {
         await tester.enterText(find.byType(TextFormField).at(1), '100');
         await tap('สร้างหนี้ก้อนแรก');
         expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
-        expect(find.text('บัญชีใหม่'), findsOneWidget);
+        await waitForText('บัญชีใหม่');
+        final firstId = (await DebtRepository(database).list()).single.id;
+        await tap('1 / 1');
+        await tap('เพิ่มบัญชี');
+        await tester.enterText(find.byType(TextFormField).at(0), 'บัญชีที่สอง');
+        await tester.enterText(find.byType(TextFormField).at(1), '200');
+        await tap('สร้างบัญชีหนี้');
+        await waitForText('บัญชีที่สอง');
+        await waitForPosition('2 / 2');
+        final secondId = (await DebtRepository(database).list()).last.id;
+        expect(await DebtRepository(database).defaultId(), firstId);
+        await tap('บันทึกการจ่าย');
+        await tester.enterText(find.byType(TextFormField).first, '50');
+        await tap('บันทึกการจ่าย');
+        await waitForText('บันทึกการจ่ายแล้ว อีกก้าวที่ใกล้เป้าหมาย 🌱');
+        expect(
+          (await DebtRepository(database).load(secondId))!.remaining,
+          15000,
+        );
+        expect(
+          (await DebtRepository(database).load(firstId))!.history,
+          isEmpty,
+        );
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(AccountSwipeCard)),
+          alignment: .5,
+        );
+        await tester.pumpAndSettle();
+        final swipeDistance =
+            tester.getSize(find.byType(AccountSwipeCard)).width * .8;
+        await tester.drag(
+          find.byType(AccountSwipeCard),
+          Offset(swipeDistance, 0),
+        );
+        await tester.pumpAndSettle();
+        await waitForPosition('1 / 2');
+        await waitForText('ประวัติรายการ');
+        await tester.drag(
+          find.byType(AccountSwipeCard),
+          Offset(-swipeDistance, 0),
+        );
+        await tester.pumpAndSettle();
+        await waitForPosition('2 / 2');
+        await waitForText('ประวัติรายการ');
+        final card = find.byType(AccountSwipeCard);
+        Future<TestGesture> revealPlus() async {
+          final gesture = await tester.startGesture(tester.getCenter(card));
+          await gesture.moveBy(const Offset(-30, 0));
+          await gesture.moveBy(const Offset(-140, 0));
+          await tester.pump();
+          return gesture;
+        }
+
+        var held = await revealPlus();
+        await tester.pump(const Duration(milliseconds: 300));
+        await held.cancel();
+        await tester.pumpAndSettle();
+        await waitForPosition('2 / 2');
+        held = await revealPlus();
+        await tester.pump(const Duration(milliseconds: 700));
+        expect(find.text('ปล่อยเพื่อเพิ่มบัญชี'), findsOneWidget);
+        await held.up();
+        await tester.pumpAndSettle();
+        await waitForText('สร้างบัญชีหนี้');
+        await tester.tap(find.byTooltip('กลับ'));
+        await tester.pumpAndSettle();
+        await waitForPosition('2 / 2');
+        await tap('บัญชีที่สอง');
+        await tap('บัญชีใหม่');
+        expect(find.text('1 / 2'), findsOneWidget);
+        await tester.tap(find.byTooltip('บัญชีถัดไป'));
+        await tester.pumpAndSettle();
+        await tapMenu();
+        await tester.pumpAndSettle();
+        await tap('ปรับแต่งบัญชี');
+        await tap('ตั้งเป็นบัญชีหลัก');
+        expect(await DebtRepository(database).defaultId(), secondId);
+        await tester.tap(find.byTooltip('ปิด'));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+        await database.close();
+        database = AppDatabase(databasePath: databasePath);
+        await boot();
+        await waitForText('บัญชีที่สอง');
+        expect(find.text('฿150'), findsNWidgets(2));
+        await tapMenu();
+        await tester.pumpAndSettle();
+        await tap('ปรับแต่งบัญชี');
+        await tap('ลบบัญชีนี้');
+        expect(find.textContaining('จะเป็นบัญชีหลักแทน'), findsOneWidget);
+        await tap('ลบอย่างถาวร');
+        await waitForText('บัญชีใหม่');
+        expect(await DebtRepository(database).defaultId(), firstId);
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox());

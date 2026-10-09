@@ -16,11 +16,13 @@ class AppConfirmSheet extends StatelessWidget {
     this.isLoading = false,
     this.destructive = true,
     this.details,
+    this.icon,
   });
   final String title, message, confirmLabel;
   final VoidCallback? onConfirm, onCancel;
   final bool isLoading, destructive;
   final Widget? details;
+  final IconData? icon;
   @override
   Widget build(BuildContext context) => AppBottomSheet(
     child: Column(
@@ -32,9 +34,10 @@ class AppConfirmSheet extends StatelessWidget {
               ? AppColors.errorSoft
               : AppColors.primarySoft,
           child: Icon(
-            destructive
-                ? Icons.delete_outline_rounded
-                : Icons.edit_note_rounded,
+            icon ??
+                (destructive
+                    ? Icons.delete_outline_rounded
+                    : Icons.edit_note_rounded),
             color: destructive ? AppColors.error : AppColors.primaryDark,
             size: 30,
           ),

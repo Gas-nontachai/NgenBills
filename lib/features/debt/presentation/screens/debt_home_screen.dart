@@ -25,7 +25,7 @@ import '../widgets/borrowing_list_item.dart';
 import 'empty_home_screen.dart';
 import '../widgets/account_swipe_card.dart';
 import '../sheets/account_picker_sheet.dart';
-import '../../../../core/widgets/feedback/app_snackbar.dart';
+import '../sheets/create_debt_sheet.dart';
 
 class DebtHomeScreen extends ConsumerStatefulWidget {
   const DebtHomeScreen({super.key});
@@ -35,8 +35,7 @@ class DebtHomeScreen extends ConsumerStatefulWidget {
 
 class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
   final _scroll = ScrollController();
-  String? _pendingId, _lastActiveId;
-  int _revision = 0;
+  String? _lastActiveId;
 
   @override
   void dispose() {
@@ -44,54 +43,25 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
     super.dispose();
   }
 
-  void _create() {
-    if (!ref.read(paymentActionProvider)) context.push('/create');
+  Future<void> _create() async {
+    if (!ref.read(paymentActionProvider)) {
+      await CreateDebtSheet.open(context);
+    }
   }
 
   Future<void> _select(String id) async {
-    if (ref.read(paymentActionProvider) || _pendingId == id) return;
-    final currentId = ref.read(debtSummaryProvider).value?.debt.id;
-    if (currentId == id && _pendingId == null) return;
-    final revision = ++_revision;
-    setState(() => _pendingId = id);
-    try {
-      final latest = await ref.read(debtRepositoryProvider).list();
-      if (!mounted ||
-          revision != _revision ||
-          ref.read(paymentActionProvider)) {
-        return;
-      }
-      if (!latest.any((a) => a.id == id)) {
-        ref.read(selectedDebtIdProvider.notifier).select(null);
-        ref.invalidate(accountsProvider);
-        ref.invalidate(defaultDebtIdProvider);
-        return;
-      }
-      final target = debtSummaryByIdProvider(id);
-      if (ref.read(target).hasError) ref.invalidate(target);
-      final subscription = ref.listenManual(target, (_, _) {});
-      try {
-        final summary = await ref.read(target.future);
-        if (!mounted ||
-            revision != _revision ||
-            ref.read(paymentActionProvider)) {
-          return;
-        }
-        if (summary == null) {
-          ref.invalidate(accountsProvider);
-          ref.invalidate(defaultDebtIdProvider);
-          return;
-        }
-        ref.read(selectedDebtIdProvider.notifier).select(id);
-        if (_scroll.hasClients) _scroll.jumpTo(0);
-      } finally {
-        subscription.close();
-      }
-    } catch (error) {
-      if (mounted && revision == _revision) AppSnackBar.failure(context, error);
-    } finally {
-      if (mounted && revision == _revision) setState(() => _pendingId = null);
+    if (ref.read(paymentActionProvider)) return;
+    final accounts = ref.read(accountsProvider).value ?? [];
+    if (!accounts.any((account) => account.id == id)) {
+      ref.invalidate(accountsProvider);
+      ref.invalidate(defaultDebtIdProvider);
+      return;
     }
+    // Selection is immediate. Each account's provider owns its load, so an
+    // older request cannot commit an outdated selection after another swipe.
+    final target = debtSummaryByIdProvider(id);
+    if (ref.read(target).hasError) ref.invalidate(target);
+    ref.read(selectedDebtIdProvider.notifier).select(id);
   }
 
   Future<void> _openPicker(String currentId) async {
@@ -115,7 +85,6 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
     final accountsState = ref.watch(accountsProvider);
     final defaultState = ref.watch(defaultDebtIdProvider);
     final selected = ref.watch(selectedDebtIdProvider);
-    final details = ref.watch(debtSummaryProvider);
     final reminders = ref.watch(reminderControllerProvider);
     final writing = ref.watch(paymentActionProvider);
     return accountsState.when(
@@ -132,13 +101,6 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
       ),
       data: (accounts) {
         if (accounts.isEmpty) {
-          if (details.hasError) {
-            return Scaffold(
-              body: AppErrorState(
-                onRetry: () => ref.invalidate(debtSummaryProvider),
-              ),
-            );
-          }
           return const EmptyHomeScreen();
         }
         if (reminders.onboardingDone == null && !reminders.loadError) {
@@ -159,13 +121,11 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
             if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
           });
         }
-        final pendingId = accounts.any((a) => a.id == _pendingId)
-            ? _pendingId
-            : null;
+        // The carousel and history read the same ID, including cached pages.
+        final details = ref.watch(debtSummaryByIdProvider(activeId));
         final summary =
             !details.isLoading &&
                 !details.hasError &&
-                pendingId == null &&
                 details.value?.debt.id == activeId
             ? details.value
             : null;
@@ -174,9 +134,9 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
             title: const AppBrandTitle(),
             actions: [
               IconButton(
-                tooltip: 'การแจ้งเตือน',
+                tooltip: 'ตั้งค่า',
                 icon: const Icon(Icons.settings_outlined),
-                onPressed: () => context.push('/settings/notifications'),
+                onPressed: () => context.push('/settings'),
               ),
             ],
           ),
@@ -205,9 +165,8 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
                       ),
                     AccountSwipeCard(
                       accountIds: accounts.map((a) => a.id).toList(),
-                      selectedId: pendingId ?? activeId,
+                      selectedId: activeId,
                       enabled: !writing,
-                      canCreate: pendingId == null,
                       onSelect: _select,
                       onCreate: _create,
                       itemBuilder: (context, index, active) => _AccountPage(
@@ -224,14 +183,19 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: summary != null
-                          ? _AccountDetails(summary: summary)
-                          : details.hasError && pendingId == null
+                          ? _AccountDetails(
+                              key: ValueKey(activeId),
+                              summary: summary,
+                            )
+                          : details.hasError ||
+                                (!details.isLoading && details.value == null)
                           ? AppErrorState(
                               onRetry: () {
                                 ref.invalidate(
                                   debtSummaryByIdProvider(activeId),
                                 );
-                                ref.invalidate(debtSummaryProvider);
+                                ref.invalidate(accountsProvider);
+                                ref.invalidate(defaultDebtIdProvider);
                               },
                             )
                           : const SizedBox(
@@ -412,7 +376,7 @@ class _AccountPage extends ConsumerWidget {
 }
 
 class _AccountDetails extends StatelessWidget {
-  const _AccountDetails({required this.summary});
+  const _AccountDetails({super.key, required this.summary});
   final DebtSummary summary;
   @override
   Widget build(BuildContext context) => Column(

@@ -62,6 +62,22 @@ class ReminderController extends Notifier<ReminderState> {
 
   Future<void> refresh() => _enqueue(_sync);
 
+  /// Restore shares the reminder queue so an older reconciliation cannot
+  /// reinstall the previous database's schedule after replacement.
+  Future<void> restoreData(Future<void> Function() replace) =>
+      _enqueue(() async {
+        final saved = await ref.read(paymentActionProvider.notifier).run(
+          () async {
+            await replace();
+            ref.read(selectedDebtIdProvider.notifier).select(null);
+          },
+        );
+        if (!saved) {
+          throw const AppException('กำลังบันทึกข้อมูล กรุณาลองกู้คืนอีกครั้ง');
+        }
+        await _sync();
+      });
+
   Future<void> _sync() async {
     if (!ref.mounted) return;
     final previous = state;
@@ -214,6 +230,23 @@ class ReminderController extends Notifier<ReminderState> {
   Future<void> disable() => _enqueue(() async {
     final repository = ref.read(reminderRepositoryProvider);
     await _write(repository.disableAll);
+    if (!ref.mounted) return;
+    // The transaction has committed. Publish its result before scheduling so
+    // even a subsequent read/native failure cannot restore old enabled flags.
+    final previous = state;
+    state = ReminderState(
+      onboardingDone: previous.onboardingDone,
+      settings: previous.settings?.withEnabled(false),
+      settingsByDebt: Map.unmodifiable({
+        for (final entry in previous.settingsByDebt.entries)
+          entry.key: entry.value.withEnabled(false),
+      }),
+      permissionAllowed: previous.permissionAllowed,
+      zone: previous.zone,
+      busy: true,
+      loadError: previous.loadError,
+      syncError: previous.syncError,
+    );
     await _sync();
   });
 

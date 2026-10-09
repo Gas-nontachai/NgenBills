@@ -24,10 +24,12 @@ class DebtProgressCard extends ConsumerWidget {
     required this.summary,
     this.accountHeader,
     this.accountNavigation,
+    this.interactive = true,
   });
   final DebtSummary summary;
   final Widget? accountHeader;
   final Widget? accountNavigation;
+  final bool interactive;
   @override
   Widget build(BuildContext context, WidgetRef ref) => AppCard(
     child: Column(
@@ -40,7 +42,7 @@ class DebtProgressCard extends ConsumerWidget {
             final menu = SizedBox(
               width: 32,
               child: PopupMenuButton<String>(
-                tooltip: 'เมนูหนี้',
+                tooltip: interactive ? 'เมนูหนี้' : null,
                 position: PopupMenuPosition.under,
                 offset: const Offset(0, 8),
                 constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
@@ -54,7 +56,7 @@ class DebtProgressCard extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(20),
                   side: const BorderSide(color: AppColors.border),
                 ),
-                enabled: !ref.watch(paymentActionProvider),
+                enabled: interactive && !ref.watch(paymentActionProvider),
                 onSelected: (value) {
                   switch (value) {
                     case 'borrow':

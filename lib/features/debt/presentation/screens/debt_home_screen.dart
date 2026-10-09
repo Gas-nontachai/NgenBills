@@ -17,6 +17,9 @@ import '../../../../core/widgets/states/app_loading_state.dart';
 import '../../../payment/presentation/widgets/add_payment_sheet.dart';
 import '../../../payment/presentation/widgets/payment_list_item.dart';
 import '../providers/debt_providers.dart';
+import '../../domain/entities/debt.dart';
+import '../../domain/services/debt_summary.dart';
+import '../widgets/account_avatar.dart';
 import '../widgets/debt_progress_card.dart';
 import '../widgets/borrowing_list_item.dart';
 import 'empty_home_screen.dart';
@@ -24,271 +27,443 @@ import '../widgets/account_swipe_card.dart';
 import '../sheets/account_picker_sheet.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 
-class DebtHomeScreen extends ConsumerWidget {
+class DebtHomeScreen extends ConsumerStatefulWidget {
   const DebtHomeScreen({super.key});
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final reminders = ref.watch(reminderControllerProvider);
-    final accounts = ref.watch(accountsProvider).value ?? [];
-    final defaultId = ref.watch(defaultDebtIdProvider).value;
-    final writing = ref.watch(paymentActionProvider);
-    void create() {
-      if (!ref.read(paymentActionProvider)) context.push('/create');
-    }
+  ConsumerState<DebtHomeScreen> createState() => _DebtHomeScreenState();
+}
 
-    Future<void> select(String id) async {
-      if (ref.read(paymentActionProvider)) return;
+class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
+  final _scroll = ScrollController();
+  String? _pendingId, _lastActiveId;
+  int _revision = 0;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _create() {
+    if (!ref.read(paymentActionProvider)) context.push('/create');
+  }
+
+  Future<void> _select(String id) async {
+    if (ref.read(paymentActionProvider) || _pendingId == id) return;
+    final currentId = ref.read(debtSummaryProvider).value?.debt.id;
+    if (currentId == id && _pendingId == null) return;
+    final revision = ++_revision;
+    setState(() => _pendingId = id);
+    try {
+      final latest = await ref.read(debtRepositoryProvider).list();
+      if (!mounted ||
+          revision != _revision ||
+          ref.read(paymentActionProvider)) {
+        return;
+      }
+      if (!latest.any((a) => a.id == id)) {
+        ref.read(selectedDebtIdProvider.notifier).select(null);
+        ref.invalidate(accountsProvider);
+        ref.invalidate(defaultDebtIdProvider);
+        return;
+      }
+      final target = debtSummaryByIdProvider(id);
+      if (ref.read(target).hasError) ref.invalidate(target);
+      final subscription = ref.listenManual(target, (_, _) {});
       try {
-        final latest = await ref.read(debtRepositoryProvider).list();
-        if (!context.mounted || ref.read(paymentActionProvider)) return;
-        if (latest.any((a) => a.id == id)) {
-          ref.read(selectedDebtIdProvider.notifier).select(id);
-        } else {
-          ref.read(selectedDebtIdProvider.notifier).select(null);
+        final summary = await ref.read(target.future);
+        if (!mounted ||
+            revision != _revision ||
+            ref.read(paymentActionProvider)) {
+          return;
+        }
+        if (summary == null) {
           ref.invalidate(accountsProvider);
           ref.invalidate(defaultDebtIdProvider);
+          return;
         }
-      } catch (error) {
-        if (context.mounted) AppSnackBar.failure(context, error);
+        ref.read(selectedDebtIdProvider.notifier).select(id);
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+      } finally {
+        subscription.close();
       }
+    } catch (error) {
+      if (mounted && revision == _revision) AppSnackBar.failure(context, error);
+    } finally {
+      if (mounted && revision == _revision) setState(() => _pendingId = null);
     }
+  }
 
-    Future<void> openPicker(String currentId) async {
-      if (ref.read(paymentActionProvider)) return;
-      final result = await AccountPickerSheet.open(
-        context,
-        accounts,
-        currentId,
-        defaultId,
-      );
-      if (!context.mounted || result == null) return;
-      if (result.create) {
-        create();
-      } else if (result.debtId != null) {
-        await select(result.debtId!);
-      }
+  Future<void> _openPicker(String currentId) async {
+    if (ref.read(paymentActionProvider)) return;
+    final result = await AccountPickerSheet.open(
+      context,
+      ref.read(accountsProvider).value ?? [],
+      currentId,
+      ref.read(defaultDebtIdProvider).value,
+    );
+    if (!mounted || result == null) return;
+    if (result.create) {
+      _create();
+    } else if (result.debtId != null) {
+      await _select(result.debtId!);
     }
+  }
 
-    return ref
-        .watch(debtSummaryProvider)
-        .when(
-          skipLoadingOnRefresh: false,
-          loading: () => const Scaffold(body: AppLoadingState()),
-          error: (error, stack) => Scaffold(
-            body: AppErrorState(
-              onRetry: () => ref.invalidate(debtSummaryProvider),
+  @override
+  Widget build(BuildContext context) {
+    final accountsState = ref.watch(accountsProvider);
+    final defaultState = ref.watch(defaultDebtIdProvider);
+    final selected = ref.watch(selectedDebtIdProvider);
+    final details = ref.watch(debtSummaryProvider);
+    final reminders = ref.watch(reminderControllerProvider);
+    final writing = ref.watch(paymentActionProvider);
+    return accountsState.when(
+      skipLoadingOnRefresh: true,
+      skipLoadingOnReload: true,
+      loading: () => const Scaffold(body: AppLoadingState()),
+      error: (error, stack) => Scaffold(
+        body: AppErrorState(
+          onRetry: () {
+            ref.invalidate(accountsProvider);
+            ref.invalidate(defaultDebtIdProvider);
+          },
+        ),
+      ),
+      data: (accounts) {
+        if (accounts.isEmpty) {
+          if (details.hasError) {
+            return Scaffold(
+              body: AppErrorState(
+                onRetry: () => ref.invalidate(debtSummaryProvider),
+              ),
+            );
+          }
+          return const EmptyHomeScreen();
+        }
+        if (reminders.onboardingDone == null && !reminders.loadError) {
+          return const Scaffold(body: AppLoadingState());
+        }
+        if (reminders.onboardingDone == false) {
+          return const NotificationOnboardingScreen();
+        }
+        final defaultId = defaultState.value;
+        final activeId = accounts.any((a) => a.id == selected)
+            ? selected!
+            : (accounts.any((a) => a.id == defaultId)
+                  ? defaultId!
+                  : accounts.first.id);
+        if (_lastActiveId != activeId) {
+          _lastActiveId = activeId;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _scroll.hasClients) _scroll.jumpTo(0);
+          });
+        }
+        final pendingId = accounts.any((a) => a.id == _pendingId)
+            ? _pendingId
+            : null;
+        final summary =
+            !details.isLoading &&
+                !details.hasError &&
+                pendingId == null &&
+                details.value?.debt.id == activeId
+            ? details.value
+            : null;
+        return Scaffold(
+          appBar: AppBar(
+            title: const AppBrandTitle(),
+            actions: [
+              IconButton(
+                tooltip: 'การแจ้งเตือน',
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => context.push('/settings/notifications'),
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: ListView(
+                  controller: _scroll,
+                  padding: const EdgeInsets.only(top: 8, bottom: 32),
+                  children: [
+                    if (writing)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('กำลังบันทึก…'),
+                          ],
+                        ),
+                      ),
+                    AccountSwipeCard(
+                      accountIds: accounts.map((a) => a.id).toList(),
+                      selectedId: pendingId ?? activeId,
+                      enabled: !writing,
+                      canCreate: pendingId == null,
+                      onSelect: _select,
+                      onCreate: _create,
+                      itemBuilder: (context, index, active) => _AccountPage(
+                        debt: accounts[index],
+                        accounts: accounts,
+                        index: index,
+                        defaultId: defaultId,
+                        active: active,
+                        enabled: !writing,
+                        onSelect: _select,
+                        onPicker: _openPicker,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: summary != null
+                          ? _AccountDetails(summary: summary)
+                          : details.hasError && pendingId == null
+                          ? AppErrorState(
+                              onRetry: () {
+                                ref.invalidate(
+                                  debtSummaryByIdProvider(activeId),
+                                );
+                                ref.invalidate(debtSummaryProvider);
+                              },
+                            )
+                          : const SizedBox(
+                              height: 160,
+                              child: AppLoadingState(),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
-          data: (summary) {
-            if (summary == null) return const EmptyHomeScreen();
-            // Offer notification onboarding only once a debt actually exists.
-            if (reminders.onboardingDone == null && !reminders.loadError) {
-              return Scaffold(body: const AppLoadingState());
-            }
-            if (reminders.onboardingDone == false) {
-              return const NotificationOnboardingScreen();
-            }
-            final index = accounts.indexWhere((a) => a.id == summary.debt.id);
-            return Scaffold(
-              appBar: AppBar(
-                title: const AppBrandTitle(),
-                actions: [
-                  IconButton(
-                    tooltip: 'การแจ้งเตือน',
-                    icon: const Icon(Icons.settings_outlined),
-                    onPressed: () => context.push('/settings/notifications'),
-                  ),
-                ],
-              ),
-              body: SafeArea(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
-                    child: ListView(
-                      key: ValueKey(summary.debt.id),
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        );
+      },
+    );
+  }
+}
+
+class _AccountPage extends ConsumerWidget {
+  const _AccountPage({
+    required this.debt,
+    required this.accounts,
+    required this.index,
+    required this.defaultId,
+    required this.active,
+    required this.enabled,
+    required this.onSelect,
+    required this.onPicker,
+  });
+  final Debt debt;
+  final List<Debt> accounts;
+  final int index;
+  final String? defaultId;
+  final bool active, enabled;
+  final Future<void> Function(String) onSelect, onPicker;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final writing = !enabled;
+    return ref
+        .watch(debtSummaryByIdProvider(debt.id))
+        .when(
+          skipLoadingOnRefresh: false,
+          loading: () => _placeholder(),
+          error: (error, stack) => _placeholder(error: true),
+          data: (summary) => summary == null
+              ? _placeholder(error: true)
+              : DebtProgressCard(
+                  summary: summary,
+                  interactive: active,
+                  accountHeader: InkWell(
+                    onTap: writing ? null : () => onPicker(debt.id),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (writing)
-                          const Row(
-                            children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                              SizedBox(width: 8),
-                              Text('กำลังบันทึก…'),
-                            ],
-                          ),
-                        AccountSwipeCard(
-                          key: ValueKey('swipe-${summary.debt.id}'),
-                          enabled: !writing,
-                          last: index == accounts.length - 1,
-                          onCreate: create,
-                          onPrevious: () {
-                            if (index > 0) {
-                              select(accounts[index - 1].id);
-                            }
-                          },
-                          onNext: () {
-                            if (index >= 0 && index + 1 < accounts.length) {
-                              select(accounts[index + 1].id);
-                            }
-                          },
-                          child: DebtProgressCard(
-                            summary: summary,
-                            accountHeader: InkWell(
-                              onTap: writing
-                                  ? null
-                                  : () => openPicker(summary.debt.id),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    summary.debt.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.title,
-                                  ),
-                                  if (defaultId == summary.debt.id)
-                                    const Text(
-                                      'บัญชีหลัก',
-                                      style: AppTypography.caption,
-                                    ),
-                                ],
-                              ),
-                            ),
-                            accountNavigation: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: AppColors.background,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    tooltip: 'บัญชีก่อนหน้า',
-                                    style: IconButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: const Size(28, 32),
-                                      fixedSize: const Size(28, 32),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed: writing || index <= 0
-                                        ? null
-                                        : () => select(accounts[index - 1].id),
-                                    icon: const Icon(
-                                      Icons.chevron_left,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  InkWell(
-                                    onTap: writing
-                                        ? null
-                                        : () => openPicker(summary.debt.id),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 2,
-                                        vertical: 8,
-                                      ),
-                                      child: Text(
-                                        '${index + 1} / ${accounts.length}',
-                                        style: AppTypography.caption.copyWith(
-                                          color: AppColors.text,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'บัญชีถัดไป',
-                                    style: IconButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: const Size(28, 32),
-                                      fixedSize: const Size(28, 32),
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    onPressed:
-                                        writing ||
-                                            index < 0 ||
-                                            index + 1 >= accounts.length
-                                        ? null
-                                        : () => select(accounts[index + 1].id),
-                                    icon: const Icon(
-                                      Icons.chevron_right,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const ReminderSyncNotice(),
-                        const SizedBox(height: 16),
-                        AppButton(
-                          label: summary.isPaid
-                              ? 'ชำระครบแล้ว'
-                              : 'บันทึกการจ่าย',
-                          icon: summary.isPaid
-                              ? Icons.check_circle_outline
-                              : Icons.add_circle_outline,
-                          onPressed: summary.isPaid
-                              ? null
-                              : () => AddPaymentSheet.open(context, summary),
-                        ),
-                        const SizedBox(height: 24),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Expanded(
+                            Flexible(
                               child: Text(
-                                'ประวัติรายการ',
+                                debt.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: AppTypography.title,
                               ),
                             ),
-                            Text(
-                              '${summary.history.length} รายการ',
-                              style: AppTypography.caption,
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.expand_more_rounded,
+                              key: active
+                                  ? const ValueKey('account-picker-arrow')
+                                  : null,
+                              semanticLabel: 'เลือกบัญชี',
+                              size: 20,
+                              color: AppColors.primaryDark,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-                        if (summary.history.isEmpty)
-                          const AppCard(
-                            color: AppColors.primarySoft,
-                            child: AppEmptyState(
-                              title: 'ยังไม่มีประวัติรายการ',
-                              message: 'บันทึกการจ่ายหรือกู้เพิ่ม\nเพื่อเริ่มติดตามบัญชีของคุณ',
+                        if (defaultId == debt.id)
+                          const Text('บัญชีหลัก', style: AppTypography.caption),
+                      ],
+                    ),
+                  ),
+                  accountNavigation: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: active ? 'บัญชีก่อนหน้า' : null,
+                          style: IconButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(28, 32),
+                            fixedSize: const Size(28, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed: writing || index <= 0
+                              ? null
+                              : () => onSelect(accounts[index - 1].id),
+                          icon: const Icon(Icons.chevron_left, size: 20),
+                        ),
+                        InkWell(
+                          onTap: writing ? null : () => onPicker(debt.id),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 2,
+                              vertical: 8,
+                            ),
+                            child: Text(
+                              '${index + 1} / ${accounts.length}',
+                              style: AppTypography.caption.copyWith(
+                                color: AppColors.text,
+                              ),
                             ),
                           ),
-                        ...summary.history.map(
-                          (entry) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: entry.payment != null
-                                ? PaymentListItem(payment: entry.payment!)
-                                : BorrowingListItem(
-                                    borrowing: entry.borrowing!,
-                                  ),
-                          ),
                         ),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'ค่อย ๆ จ่าย ค่อย ๆ ไป 🌱',
-                          style: AppTypography.caption,
-                          textAlign: TextAlign.center,
+                        IconButton(
+                          tooltip: active ? 'บัญชีถัดไป' : null,
+                          style: IconButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(28, 32),
+                            fixedSize: const Size(28, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          onPressed:
+                              writing ||
+                                  index < 0 ||
+                                  index + 1 >= accounts.length
+                              ? null
+                              : () => onSelect(accounts[index + 1].id),
+                          icon: const Icon(Icons.chevron_right, size: 20),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ),
-            );
-          },
         );
   }
+
+  Widget _placeholder({bool error = false}) => AppCard(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            AccountAvatar(iconKey: debt.iconKey, colorKey: debt.colorKey),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                debt.name,
+                style: AppTypography.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(
+          height: 270,
+          child: Center(
+            child: error
+                ? const Text('โหลดบัญชีไม่สำเร็จ', style: AppTypography.small)
+                : const SizedBox(
+                    width: 160,
+                    height: 12,
+                    child: ColoredBox(color: AppColors.border),
+                  ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _AccountDetails extends StatelessWidget {
+  const _AccountDetails({required this.summary});
+  final DebtSummary summary;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const ReminderSyncNotice(),
+      const SizedBox(height: 16),
+      AppButton(
+        label: summary.isPaid ? 'ชำระครบแล้ว' : 'บันทึกการจ่าย',
+        icon: summary.isPaid
+            ? Icons.check_circle_outline
+            : Icons.add_circle_outline,
+        onPressed: summary.isPaid
+            ? null
+            : () => AddPaymentSheet.open(context, summary),
+      ),
+      const SizedBox(height: 24),
+      Row(
+        children: [
+          const Expanded(
+            child: Text('ประวัติรายการ', style: AppTypography.title),
+          ),
+          Text(
+            '${summary.history.length} รายการ',
+            style: AppTypography.caption,
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (summary.history.isEmpty)
+        const AppCard(
+          color: AppColors.primarySoft,
+          child: AppEmptyState(
+            title: 'ยังไม่มีประวัติรายการ',
+            message: 'บันทึกการจ่ายหรือกู้เพิ่ม\nเพื่อเริ่มติดตามบัญชีของคุณ',
+          ),
+        ),
+      ...summary.history.map(
+        (entry) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: entry.payment != null
+              ? PaymentListItem(payment: entry.payment!)
+              : BorrowingListItem(borrowing: entry.borrowing!),
+        ),
+      ),
+      const SizedBox(height: 18),
+      const Text(
+        'ค่อย ๆ จ่าย ค่อย ๆ ไป 🌱',
+        style: AppTypography.caption,
+        textAlign: TextAlign.center,
+      ),
+    ],
+  );
 }

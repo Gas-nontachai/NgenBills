@@ -34,6 +34,9 @@ class _MemoryDebts extends DebtRepository {
       ),
   ];
   String primary = '0';
+  Completer<void>? pendingLoad;
+  final failIds = <String>{};
+  final reads = <String, int>{};
   @override
   Future<List<Debt>> list() async => accounts;
   @override
@@ -44,8 +47,14 @@ class _MemoryDebts extends DebtRepository {
   }
 
   @override
-  Future<DebtSummary?> load([String? id]) async =>
-      DebtSummary(accounts.firstWhere((a) => a.id == (id ?? '0')), []);
+  Future<DebtSummary?> load([String? id]) async {
+    final key = id ?? '0';
+    reads[key] = (reads[key] ?? 0) + 1;
+    if (failIds.contains(key)) throw StateError('read failed');
+    if (id == '1') await pendingLoad?.future;
+    return DebtSummary(accounts.firstWhere((a) => a.id == (id ?? '0')), []);
+  }
+
   @override
   Future<List<DebtSummary>> loadAll() async => [
     for (final a in accounts) DebtSummary(a, []),
@@ -212,12 +221,12 @@ void main() {
       final accounts = await memory.list();
       expect(find.text('บัญชีแรก'), findsOneWidget);
       expect(find.text('เพิ่มบัญชี'), findsNothing);
-      await tester.tap(find.text('บัญชีแรก'));
+      await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
       await tester.pumpAndSettle();
       expect(find.text('เพิ่มบัญชี'), findsOneWidget);
       await tester.tap(find.byTooltip('ปิด'));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(AccountSwipeCard), const Offset(-150, 0));
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
       await tester.pumpAndSettle();
       expect(find.text('บัญชีสอง'), findsOneWidget);
       expect(find.text('฿200'), findsNWidgets(2));
@@ -235,7 +244,7 @@ void main() {
           .run(() => pending.future);
       await tester.pump();
       expect(find.text('กำลังบันทึก…'), findsOneWidget);
-      await tester.drag(find.byType(AccountSwipeCard), const Offset(-150, 0));
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
       await tester.pump();
       expect(find.text('บัญชีแรก'), findsOneWidget);
       pending.complete();
@@ -253,6 +262,105 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'Swipe keeps delayed account read alive until selection completes',
+    (tester) async {
+      memory = _MemoryDebts();
+      memory.pendingLoad = Completer<void>();
+      final container = await boot(tester, seed: false);
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      expect(container.read(selectedDebtIdProvider), isNull);
+      await tester.pump(const Duration(seconds: 1));
+      memory.pendingLoad!.complete();
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), '1');
+      expect(find.text('บัญชีสอง'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Failed target returns to current account and a new swipe retries',
+    (tester) async {
+      memory = _MemoryDebts()..failIds.add('1');
+      final container = await boot(tester, seed: false);
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), isNull);
+      final pages = tester.widget<PageView>(find.byType(PageView)).controller!;
+      expect(pages.page, closeTo(0, .001));
+      expect(find.text('฿100'), findsNWidgets(2));
+      memory.failIds.clear();
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), '1');
+      expect(pages.page, closeTo(1, .001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final count in [1, 10, 20]) {
+    testWidgets(
+      'Carousel with $count accounts stays lazy and selects directly',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = count == 20
+            ? 1.8
+            : 1;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+          tester.platformDispatcher.clearTextScaleFactorTestValue();
+        });
+        memory = _MemoryDebts();
+        memory.accounts.clear();
+        for (var i = 0; i < count; i++) {
+          memory.accounts.add(
+            Debt(
+              id: '$i',
+              name: i == count - 1 ? 'ปลายทาง' : 'ชื่อบัญชียาวมาก' * 5,
+              initialAmountMinor: i == count - 1 && count > 1 ? 0 : 10000,
+              note: i == count - 1 ? 'หมายเหตุยาว' * 8 : null,
+              createdAt: DateTime(2026),
+              updatedAt: DateTime(2026),
+            ),
+          );
+        }
+        final container = await boot(tester, seed: false);
+        expect(memory.reads.length, lessThanOrEqualTo(3));
+        final controller = tester
+            .widget<PageView>(find.byType(PageView))
+            .controller;
+        await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'ปลายทาง');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('ปลายทาง').last);
+        await tester.pumpAndSettle();
+        expect(
+          container.read(debtSummaryProvider).value!.debt.id,
+          '${count - 1}',
+        );
+        expect(controller!.page, closeTo(count - 1, .001));
+        expect(
+          tester.widget<PageView>(find.byType(PageView)).controller,
+          same(controller),
+        );
+        expect(memory.reads.length, lessThanOrEqualTo(6));
+        final active = find.byKey(const ValueKey('active-account-card'));
+        final card = tester.getRect(active);
+        final viewport = tester.getRect(find.byType(PageView));
+        expect(card.bottom, lessThanOrEqualTo(viewport.bottom));
+        await tester.drag(find.byType(ListView).first, const Offset(0, -350));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final count in [1, 10, 20]) {
     testWidgets(
@@ -324,20 +432,31 @@ void main() {
     'Swipe hold requires distance and time; cancelled hold never creates',
     (tester) async {
       var creates = 0;
+      var haptics = 0;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') haptics++;
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: AccountSwipeCard(
               enabled: true,
-              last: true,
-              onPrevious: () {},
-              onNext: () {},
+              accountIds: const ['0'],
+              selectedId: '0',
+              onSelect: (_) async {},
               onCreate: () => creates++,
-              child: const SizedBox(
-                width: 350,
-                height: 300,
-                child: Text('บัญชี'),
-              ),
+              itemBuilder: (_, _, _) =>
+                  const SizedBox(height: 300, child: Text('บัญชี')),
             ),
           ),
         ),
@@ -352,28 +471,254 @@ void main() {
       var gesture = await drag();
       await tester.pump(const Duration(milliseconds: 300));
       await gesture.up();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(creates, 0);
       gesture = await drag();
       await tester.pump(const Duration(milliseconds: 700));
       expect(find.text('ปล่อยเพื่อเพิ่มบัญชี'), findsOneWidget);
+      expect(find.byType(LinearProgressIndicator), findsNothing);
+      final ring = find.byKey(const ValueKey('create-account-progress'));
+      expect(tester.widget<CircularProgressIndicator>(ring).value, 1);
+      expect(
+        tester
+            .getRect(ring)
+            .intersect(tester.getRect(find.byType(PageView)))
+            .width,
+        closeTo(56, .01),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(haptics, 1);
       await gesture.moveBy(const Offset(110, 0));
       await gesture.up();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(creates, 0);
       gesture = await drag();
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.cancel();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(creates, 0);
       gesture = await drag();
       await tester.pump(const Duration(milliseconds: 700));
       await gesture.up();
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(creates, 1);
+      expect(haptics, 3);
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        closeTo(0, .001),
+      );
       await tester.pumpWidget(const SizedBox());
     },
   );
+
+  testWidgets('A database write cancels an armed creation preview', (
+    tester,
+  ) async {
+    var enabled = true;
+    var creates = 0;
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: StatefulBuilder(
+              builder: (context, change) {
+                update = change;
+                return AccountSwipeCard(
+                  accountIds: const ['0'],
+                  selectedId: '0',
+                  enabled: enabled,
+                  onSelect: (_) async {},
+                  onCreate: () => creates++,
+                  itemBuilder: (_, _, _) => const SizedBox(
+                    height: 300,
+                    child: ColoredBox(color: Colors.white),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(const Offset(250, 150));
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-100, 0));
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.text('ปล่อยเพื่อเพิ่มบัญชี'), findsOneWidget);
+    update(() => enabled = false);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(creates, 0);
+    expect(
+      tester.widget<PageView>(find.byType(PageView)).controller!.page,
+      closeTo(0, .001),
+    );
+    expect(
+      tester
+          .widget<CircularProgressIndicator>(
+            find.byKey(const ValueKey('create-account-progress')),
+          )
+          .value,
+      0,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Carousel shows neighbors and moves both cards together without replacing controller',
+    (tester) async {
+      var account = 0;
+      var switches = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 350,
+                child: StatefulBuilder(
+                  builder: (context, update) => AccountSwipeCard(
+                    enabled: true,
+                    accountIds: const ['0', '1'],
+                    selectedId: '$account',
+                    onSelect: (id) async => update(() {
+                      account = int.parse(id);
+                      switches++;
+                    }),
+                    onCreate: () {},
+                    itemBuilder: (_, index, _) => SizedBox(
+                      height: 220,
+                      child: ColoredBox(
+                        color: Colors.white,
+                        child: Text('บัญชี $index'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      final first = find.byKey(const ValueKey('account-page-0'));
+      final next = find.byKey(const ValueKey('account-page-1'));
+      final firstBefore = tester.getTopLeft(first).dx;
+      final nextBefore = tester.getTopLeft(next).dx;
+      final viewport = tester.getRect(find.byType(PageView));
+      expect(tester.getRect(next).left, lessThan(viewport.right));
+      expect(find.text('ปัดค้างเพื่อเพิ่มบัญชี'), findsNothing);
+      final canceledAccount = await tester.startGesture(
+        tester.getCenter(find.byType(AccountSwipeCard)),
+      );
+      await canceledAccount.moveBy(const Offset(-30, 0));
+      await canceledAccount.moveBy(const Offset(-220, 0));
+      await tester.pump();
+      await canceledAccount.cancel();
+      await tester.pumpAndSettle();
+      expect(controller.page, closeTo(0, .001));
+      expect(switches, 0);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(AccountSwipeCard)),
+      );
+      await gesture.moveBy(const Offset(-30, 0));
+      await gesture.moveBy(const Offset(-220, 0));
+      await tester.pump();
+      final moved = tester.getTopLeft(first).dx - firstBefore;
+      expect(moved, lessThan(-100));
+      expect(tester.getTopLeft(next).dx - nextBefore, closeTo(moved, .1));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(account, 1);
+      expect(switches, 1);
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller,
+        same(controller),
+      );
+      final canceled = await tester.startGesture(
+        tester.getCenter(find.byType(AccountSwipeCard)),
+      );
+      await canceled.moveBy(const Offset(-30, 0));
+      await canceled.moveBy(const Offset(-100, 0));
+      await tester.pump();
+      expect(controller.page, greaterThan(1));
+      await canceled.cancel();
+      await tester.pumpAndSettle();
+      expect(controller.page, closeTo(1, .001));
+      expect(switches, 1);
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(account, 0);
+      await tester.fling(
+        find.byType(AccountSwipeCard),
+        const Offset(-600, 0),
+        1800,
+      );
+      await tester.pumpAndSettle();
+      expect(account, 1);
+      expect(controller.page, closeTo(1, .001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Carousel neighbor and add-preview visual references', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await (FontLoader(
+      'Kanit',
+    )..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'))).load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    final container = await boot(tester);
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/logo.png'),
+        tester.element(find.byType(NgenBillsApp)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    String golden(String name) =>
+        Platform.isLinux ? 'goldens/linux/$name.png' : 'goldens/$name.png';
+    expect(find.text('บันทึกการจ่าย').hitTestable(), findsOneWidget);
+    await expectLater(
+      find.byType(NgenBillsApp),
+      matchesGoldenFile(golden('carousel_neighbors')),
+    );
+    container.read(selectedDebtIdProvider.notifier).select('1');
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(AccountSwipeCard)),
+    );
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-140, 0));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('บันทึกการจ่าย').hitTestable(), findsOneWidget);
+    await expectLater(
+      find.byType(NgenBillsApp),
+      matchesGoldenFile(golden('carousel_add_preview')),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await expectLater(
+      find.byType(NgenBillsApp),
+      matchesGoldenFile(golden('carousel_add_ready')),
+    );
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('Picker visual reference', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -389,6 +734,13 @@ void main() {
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
     await boot(tester);
+    await tester.runAsync(
+      () => precacheImage(
+        const AssetImage('assets/logo.png'),
+        tester.element(find.byType(NgenBillsApp)),
+      ),
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('บัญชีแรก'));
     await tester.pumpAndSettle();
     await expectLater(

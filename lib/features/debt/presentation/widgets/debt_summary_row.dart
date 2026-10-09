@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_typography.dart';
+import '../../../../app/theme/app_colors.dart';
 import '../../../../core/formatters/currency_formatter.dart';
 
 class DebtSummaryRow extends StatelessWidget {
@@ -14,7 +15,7 @@ class DebtSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       Expanded(child: _value('จ่ายแล้ว', paid)),
-      const SizedBox(width: 16),
+      Container(width: 1, height: 36, color: AppColors.border),
       Expanded(child: _value('คงเหลือ', remaining, end: true)),
     ],
   );
@@ -23,7 +24,12 @@ class DebtSummaryRow extends StatelessWidget {
     children: [
       Text(label, style: AppTypography.small),
       const SizedBox(height: 4),
-      Text(Money.format(amount), style: AppTypography.title),
+      Text(
+        Money.format(amount),
+        style: AppTypography.title.copyWith(
+          color: end ? AppColors.text : AppColors.primaryDark,
+        ),
+      ),
     ],
   );
 }

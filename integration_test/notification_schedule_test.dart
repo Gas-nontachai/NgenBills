@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:ngenbills/features/debt/domain/entities/debt.dart';
@@ -13,7 +14,7 @@ void main() {
   testWidgets(
     'Native scheduling: replace multi-offset schedule, update amount and cancel',
     (tester) async {
-      final service = LocalNotificationService(onTap: () {});
+      final service = LocalNotificationService(onTap: (_) {});
       final plugin = FlutterLocalNotificationsPlugin();
       await service.initialize();
       final zone = await service.localTimezone();
@@ -39,9 +40,18 @@ void main() {
         now: now,
       );
       try {
-        // This verifies native pending requests without opening a permission
-        // prompt. OS delivery remains subject to the device's permission state.
-        await service.permissionAllowed();
+        // iOS rejects scheduling without authorization. Provisional permission
+        // allows native pending-request verification without an alert prompt.
+        // Run this test on a simulator/test device, as documented in README.
+        if (defaultTargetPlatform == TargetPlatform.iOS &&
+            !await service.permissionAllowed()) {
+          final allowed = await plugin
+              .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin
+              >()!
+              .requestPermissions(alert: true, sound: true, provisional: true);
+          expect(allowed, true);
+        }
         await service.replaceSchedule(schedule);
         var pending = await plugin.pendingNotificationRequests();
         expect(pending.length, schedule.length);
@@ -67,6 +77,33 @@ void main() {
           pending.map((r) => r.id).toSet(),
           schedule.map((r) => r.id).toSet(),
         );
+        final secondDebt = Debt(
+          id: 'notification-second-test',
+          name: 'second account',
+          initialAmountMinor: 2000000,
+          createdAt: debt.createdAt,
+          updatedAt: debt.updatedAt,
+        );
+        final merged = ReminderSchedule.combine([
+          ...updated,
+          ...ReminderSchedule.build(
+            summary: DebtSummary(secondDebt, []),
+            settings: ReminderSettings(
+              debtId: secondDebt.id,
+              dueDay: settings.dueDay,
+              enabled: true,
+              advanceDays: {1, 3, 7},
+              hour: 23,
+              minute: 59,
+            ),
+            now: now,
+          ),
+        ]);
+        await service.replaceSchedule(merged);
+        pending = await plugin.pendingNotificationRequests();
+        expect(pending.length, 60);
+        expect(pending.map((r) => r.id).toSet().length, 60);
+        expect(pending.map((r) => r.payload).toSet(), {debt.id, secondDebt.id});
         await service.replaceSchedule([]);
         expect(await plugin.pendingNotificationRequests(), isEmpty);
       } finally {

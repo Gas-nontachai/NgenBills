@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../../app/router/app_router.dart';
+import '../../../core/errors/app_exception.dart';
 import '../../debt/presentation/providers/debt_providers.dart';
 import '../data/notification_service.dart';
 import '../data/reminder_repository.dart';
@@ -13,8 +14,10 @@ final reminderRepositoryProvider = Provider(
 );
 final notificationServiceProvider = Provider<NotificationService>(
   (ref) => LocalNotificationService(
-    onTap: () {
-      if (ref.mounted) ref.read(appRouterProvider).go('/');
+    onTap: (debtId) {
+      if (!ref.mounted) return;
+      ref.read(selectedDebtIdProvider.notifier).select(debtId);
+      ref.read(appRouterProvider).go('/');
     },
   ),
 );
@@ -28,6 +31,7 @@ class ReminderState {
   const ReminderState({
     this.onboardingDone,
     this.settings,
+    this.settingsByDebt = const {},
     this.permissionAllowed,
     this.zone,
     this.busy = false,
@@ -36,6 +40,9 @@ class ReminderState {
   });
   final bool? onboardingDone, permissionAllowed;
   final ReminderSettings? settings;
+  final Map<String, ReminderSettings> settingsByDebt;
+  ReminderSettings? forDebt(String id) =>
+      settingsByDebt[id] ?? (settings?.debtId == id ? settings : null);
   final tz.Location? zone;
   final bool busy, loadError, syncError;
 }
@@ -61,6 +68,7 @@ class ReminderController extends Notifier<ReminderState> {
     state = ReminderState(
       onboardingDone: previous.onboardingDone,
       settings: previous.settings,
+      settingsByDebt: previous.settingsByDebt,
       permissionAllowed: previous.permissionAllowed,
       zone: previous.zone,
       busy: true,
@@ -68,18 +76,27 @@ class ReminderController extends Notifier<ReminderState> {
     );
     bool done;
     ReminderSettings? settings;
+    final settingsByDebt = <String, ReminderSettings>{};
     final repository = ref.read(reminderRepositoryProvider);
     final service = ref.read(notificationServiceProvider);
     try {
       done = await repository.onboardingDone();
-      final summary = await ref.read(debtRepositoryProvider).load();
-      settings = summary == null
+      if (!ref.mounted) return;
+      final summaries = await ref.read(debtRepositoryProvider).loadAll();
+      if (!ref.mounted) return;
+      for (final summary in summaries) {
+        final value = await repository.load(summary.debt.id);
+        if (!ref.mounted) return;
+        if (value != null) settingsByDebt[summary.debt.id] = value;
+      }
+      settings = summaries.isEmpty
           ? null
-          : await repository.load(summary.debt.id);
+          : settingsByDebt[summaries.first.debt.id];
       if (!ref.mounted) return;
       state = ReminderState(
         onboardingDone: done,
         settings: settings,
+        settingsByDebt: Map.unmodifiable(settingsByDebt),
         zone: previous.zone,
         busy: true,
       );
@@ -88,17 +105,22 @@ class ReminderController extends Notifier<ReminderState> {
         final zone = await service.localTimezone();
         final allowed = await service.permissionAllowed();
         final now = tz.TZDateTime.from(ref.read(reminderClockProvider)(), zone);
-        final schedule = summary == null || settings == null || !allowed
-            ? <ScheduledReminder>[]
-            : ReminderSchedule.build(
-                summary: summary,
-                settings: settings,
-                now: now,
-              );
+        final schedule = allowed
+            ? ReminderSchedule.combine([
+                for (final summary in summaries)
+                  if (settingsByDebt[summary.debt.id] case final value?)
+                    ...ReminderSchedule.build(
+                      summary: summary,
+                      settings: value,
+                      now: now,
+                    ),
+              ])
+            : <ScheduledReminder>[];
         if (!ref.mounted) return;
         state = ReminderState(
           onboardingDone: done,
           settings: settings,
+          settingsByDebt: Map.unmodifiable(settingsByDebt),
           permissionAllowed: allowed,
           zone: zone,
           busy: true,
@@ -109,6 +131,7 @@ class ReminderController extends Notifier<ReminderState> {
         state = ReminderState(
           onboardingDone: done,
           settings: settings,
+          settingsByDebt: Map.unmodifiable(settingsByDebt),
           permissionAllowed: allowed,
           zone: zone,
         );
@@ -125,6 +148,7 @@ class ReminderController extends Notifier<ReminderState> {
         state = ReminderState(
           onboardingDone: done,
           settings: settings,
+          settingsByDebt: Map.unmodifiable(settingsByDebt),
           permissionAllowed: current.permissionAllowed,
           zone: current.zone,
           syncError: true,
@@ -142,6 +166,7 @@ class ReminderController extends Notifier<ReminderState> {
       state = ReminderState(
         onboardingDone: previous.onboardingDone,
         settings: previous.settings,
+        settingsByDebt: previous.settingsByDebt,
         permissionAllowed: previous.permissionAllowed,
         zone: previous.zone,
         loadError: true,
@@ -150,10 +175,17 @@ class ReminderController extends Notifier<ReminderState> {
     }
   }
 
+  Future<void> _write(Future<void> Function() action) async {
+    final saved = await ref
+        .read(paymentActionProvider.notifier)
+        .run(action, refreshDebt: false);
+    if (!saved) throw const AppException('กำลังบันทึกข้อมูล กรุณาลองอีกครั้ง');
+  }
+
   Future<void> save(ReminderSettings settings) => _enqueue(() async {
     // Database errors propagate. Native scheduling errors are reported in state
     // by _sync, without presenting a committed write as failed.
-    await ref.read(reminderRepositoryProvider).save(settings);
+    await _write(() => ref.read(reminderRepositoryProvider).save(settings));
     await _sync();
   });
 
@@ -181,11 +213,7 @@ class ReminderController extends Notifier<ReminderState> {
 
   Future<void> disable() => _enqueue(() async {
     final repository = ref.read(reminderRepositoryProvider);
-    final summary = await ref.read(debtRepositoryProvider).load();
-    final settings = summary == null
-        ? null
-        : await repository.load(summary.debt.id);
-    if (settings != null) await repository.save(settings.withEnabled(false));
+    await _write(repository.disableAll);
     await _sync();
   });
 

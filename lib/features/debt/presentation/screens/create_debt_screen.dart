@@ -37,18 +37,20 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
     if (!_form.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     try {
-      final saved = await ref
-          .read(paymentActionProvider.notifier)
-          .run(
-            () => ref
-                .read(debtRepositoryProvider)
-                .create(
-                  name: _name.text,
-                  amountMinor: Money.parse(_amount.text)!,
-                  note: _note.text,
-                ),
-          );
+      String? createdId;
+      final saved = await ref.read(paymentActionProvider.notifier).run(
+        () async {
+          createdId = await ref
+              .read(debtRepositoryProvider)
+              .create(
+                name: _name.text,
+                amountMinor: Money.parse(_amount.text)!,
+                note: _note.text,
+              );
+        },
+      );
       if (mounted && saved) {
+        ref.read(selectedDebtIdProvider.notifier).select(createdId);
         final onboardingDone =
             ref.read(reminderControllerProvider).onboardingDone == true;
         context.go('/');
@@ -64,11 +66,15 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
   @override
   Widget build(BuildContext context) {
     final busy = ref.watch(paymentActionProvider);
+    final additional = ref.watch(accountsProvider).value?.isNotEmpty == true;
     return PopScope(
       canPop: !busy,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('เพิ่มหนี้ก้อนแรก', style: AppTypography.h2),
+          title: Text(
+            additional ? 'เพิ่มบัญชีหนี้' : 'เพิ่มหนี้ก้อนแรก',
+            style: AppTypography.h2,
+          ),
           leading: IconButton(
             tooltip: 'กลับ',
             onPressed: busy ? null : () => context.go('/'),
@@ -146,7 +152,9 @@ class _CreateDebtScreenState extends ConsumerState<CreateDebtScreen> {
                       ),
                       const SizedBox(height: 40),
                       AppButton(
-                        label: 'สร้างหนี้ก้อนแรก',
+                        label: additional
+                            ? 'สร้างบัญชีหนี้'
+                            : 'สร้างหนี้ก้อนแรก',
                         onPressed: _save,
                         isLoading: busy,
                       ),

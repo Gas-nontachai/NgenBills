@@ -42,7 +42,7 @@ class DebtReminderBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(reminderControllerProvider);
-    final settings = status.settings;
+    final settings = status.forDebt(summary.debt.id);
     final now = tz.TZDateTime.from(
       ref.watch(reminderClockProvider)(),
       status.zone ?? tz.UTC,

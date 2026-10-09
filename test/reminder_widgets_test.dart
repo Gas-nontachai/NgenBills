@@ -22,7 +22,7 @@ class _DebtRepository extends DebtRepository {
   _DebtRepository() : super(AppDatabase(factory: databaseFactoryFfi));
   int amountMinor = 1000000;
   @override
-  Future<DebtSummary?> load() async => DebtSummary(
+  Future<DebtSummary?> load([String? debtId]) async => DebtSummary(
     Debt(
       id: 'debt',
       name: 'บัตรเครดิต',
@@ -32,6 +32,12 @@ class _DebtRepository extends DebtRepository {
     ),
     [],
   );
+  @override
+  Future<List<Debt>> list() async => [(await load())!.debt];
+  @override
+  Future<String?> defaultId() async => 'debt';
+  @override
+  Future<List<DebtSummary>> loadAll() async => [(await load())!];
 }
 
 void main() {

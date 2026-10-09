@@ -17,7 +17,7 @@ abstract class NotificationService {
 
 class LocalNotificationService implements NotificationService {
   LocalNotificationService({required this.onTap});
-  final VoidCallback onTap;
+  final void Function(String? debtId) onTap;
   final _plugin = FlutterLocalNotificationsPlugin();
   bool _initialized = false;
   bool get _supported =>
@@ -39,14 +39,19 @@ class LocalNotificationService implements NotificationService {
             requestBadgePermission: false,
           ),
         ),
-        onDidReceiveNotificationResponse: (_) => onTap(),
+        onDidReceiveNotificationResponse: (response) => onTap(response.payload),
       );
-      if (initialized != true) {
+      // Android reports initialization success. iOS reports permission status,
+      // which is false when initialization deliberately requests no permission.
+      if (defaultTargetPlatform == TargetPlatform.android &&
+          initialized != true) {
         throw StateError('Notification initialization failed');
       }
       _initialized = true;
       final launch = await _plugin.getNotificationAppLaunchDetails();
-      if (launch?.didNotificationLaunchApp ?? false) onTap();
+      if (launch?.didNotificationLaunchApp ?? false) {
+        onTap(launch?.notificationResponse?.payload);
+      }
     } else {
       _initialized = true;
     }

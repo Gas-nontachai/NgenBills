@@ -8,6 +8,7 @@ import '../../debt/presentation/providers/debt_providers.dart';
 import 'reminder_providers.dart';
 import 'reminder_settings_sheet.dart';
 import 'reminder_widgets.dart';
+import '../../debt/presentation/widgets/account_avatar.dart';
 
 class NotificationSettingsScreen extends ConsumerWidget {
   const NotificationSettingsScreen({super.key});
@@ -25,7 +26,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(reminderControllerProvider);
-    final summary = ref.watch(debtSummaryProvider).value;
+    final accounts = ref.watch(accountsProvider).value ?? [];
     final controller = ref.read(reminderControllerProvider.notifier);
     return Scaffold(
       appBar: AppBar(title: const Text('การแจ้งเตือน')),
@@ -60,27 +61,37 @@ class NotificationSettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                AppCard(
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.calendar_today_outlined),
-                    title: const Text('ตั้งค่าวันครบกำหนดและแจ้งเตือน'),
-                    subtitle: Text(
-                      summary == null
-                          ? 'เพิ่มหนี้ก่อนตั้งวันครบกำหนด'
-                          : status.settings?.enabled == true
-                          ? 'เปิดการแจ้งเตือนในแอปอยู่'
-                          : 'ปิดการแจ้งเตือนในแอปอยู่',
+                for (final debt in accounts) ...[
+                  AppCard(
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: AccountAvatar(
+                        iconKey: debt.iconKey,
+                        colorKey: debt.colorKey,
+                      ),
+                      title: Text(debt.name),
+                      subtitle: Text(
+                        status.forDebt(debt.id)?.enabled == true
+                            ? 'เปิดการแจ้งเตือนในแอปอยู่'
+                            : 'ปิดการแจ้งเตือนในแอปอยู่',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: status.busy || status.loadError
+                          ? null
+                          : () => ReminderSettingsSheet.open(
+                              context,
+                              debt.id,
+                              debt.name,
+                            ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: summary == null || status.busy || status.loadError
-                        ? null
-                        : () => ReminderSettingsSheet.open(
-                            context,
-                            summary.debt.id,
-                            summary.debt.name,
-                          ),
                   ),
+                  const SizedBox(height: 12),
+                ],
+                if (accounts.isEmpty)
+                  const Text('เพิ่มบัญชีก่อนตั้งวันครบกำหนด'),
+                const Text(
+                  'ตั้งเตือนสูงสุด 60 รายการใกล้ที่สุดรวมทุกบัญชี ตารางจะเติมเมื่อเปิดแอปหรือข้อมูลเปลี่ยน หากไม่เปิดแอปจนตารางหมดจะไม่มีการเติมอัตโนมัติ',
+                  style: TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 16),
                 AppCard(
@@ -99,7 +110,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     onTap:
                         status.busy ||
                             status.loadError ||
-                            status.settings?.enabled != true
+                            !status.settingsByDebt.values.any(
+                                  (s) => s.enabled,
+                                ) &&
+                                status.settings?.enabled != true
                         ? null
                         : () => _run(context, () async {
                             await controller.disable();

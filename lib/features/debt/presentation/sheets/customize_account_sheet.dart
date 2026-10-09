@@ -208,6 +208,36 @@ class _CustomizeAccountSheetState
                   )
                   .toList(),
             ),
+            const SizedBox(height: 16),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('ตั้งเป็นบัญชีหลัก'),
+              subtitle: const Text('แสดงบัญชีนี้เมื่อเปิดแอปใหม่'),
+              value: ref.watch(defaultDebtIdProvider).value == widget.debt.id,
+              onChanged:
+                  busy ||
+                      ref.watch(defaultDebtIdProvider).value == widget.debt.id
+                  ? null
+                  : (value) async {
+                      if (!value) return;
+                      try {
+                        await ref
+                            .read(paymentActionProvider.notifier)
+                            .run(
+                              () => ref
+                                  .read(debtRepositoryProvider)
+                                  .setDefault(widget.debt.id),
+                            );
+                        if (context.mounted) {
+                          AppSnackBar.show(context, 'ตั้งเป็นบัญชีหลักแล้ว');
+                        }
+                      } catch (error) {
+                        if (context.mounted) {
+                          AppSnackBar.failure(context, error);
+                        }
+                      }
+                    },
+            ),
             const SizedBox(height: 24),
             AppButton(
               label: 'บันทึก',

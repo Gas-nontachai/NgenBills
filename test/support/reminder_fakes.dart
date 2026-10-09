@@ -23,6 +23,14 @@ class MemoryReminderRepository extends ReminderRepository {
   }
 
   @override
+  Future<void> disableAll() async {
+    if (failWrites) throw StateError('write failed');
+    for (final id in settings.keys.toList()) {
+      settings[id] = settings[id]!.withEnabled(false);
+    }
+  }
+
+  @override
   Future<bool> onboardingDone() async => done;
   @override
   Future<void> completeOnboarding() async {

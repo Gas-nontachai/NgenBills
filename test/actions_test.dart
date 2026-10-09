@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngenbills/features/debt/presentation/providers/debt_providers.dart';
+import 'package:ngenbills/features/debt/domain/entities/debt.dart';
 
 void main() {
   test(
@@ -41,4 +42,23 @@ void main() {
     expect(container.read(paymentActionProvider), false);
     expect(await action.run(() async {}), true);
   });
+  test(
+    'A committed write releases the lock while refreshed reads are pending',
+    () async {
+      final pending = Completer<List<Debt>>();
+      final container = ProviderContainer(
+        overrides: [accountsProvider.overrideWith((ref) => pending.future)],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(accountsProvider, (_, _) {});
+      addTearDown(subscription.close);
+      expect(
+        await container.read(paymentActionProvider.notifier).run(() async {}),
+        true,
+      );
+      expect(container.read(paymentActionProvider), false);
+      expect(container.read(accountsProvider).isLoading, true);
+      pending.complete([]);
+    },
+  );
 }

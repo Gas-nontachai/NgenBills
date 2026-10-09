@@ -33,17 +33,21 @@ void main() {
     expect(id, matches(RegExp(r'^[a-f0-9-]{36}$')));
     expect((await debts.load())!.debt.name, 'บัตรเครดิต');
   });
-  test('Duplicate debt rejected, including concurrent creation', () async {
-    final results = await Future.wait([
-      for (var i = 0; i < 2; i++)
-        debts
-            .create(name: 'หนี้', amountMinor: 10000)
-            .then((_) => true)
-            .catchError((Object _) => false),
-    ]);
-    expect(results.where((r) => r).length, 1);
-    expect((await (await database.instance).query('debts')).length, 1);
-  });
+  test(
+    'Concurrent creation supports multiple debts with one default',
+    () async {
+      final results = await Future.wait([
+        for (var i = 0; i < 2; i++)
+          debts
+              .create(name: 'หนี้', amountMinor: 10000)
+              .then((_) => true)
+              .catchError((Object _) => false),
+      ]);
+      expect(results.where((r) => r).length, 2);
+      expect((await debts.list()).length, 2);
+      expect(await debts.defaultId(), (await debts.list()).first.id);
+    },
+  );
   test('Invalid debt inputs rejected', () async {
     await expectLater(
       debts.create(name: ' ', amountMinor: 100),

@@ -35,9 +35,17 @@ void main() {
 
       Future<void> tap(String text) async {
         final target = find.text(text).last;
-        await tester.ensureVisible(target);
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
         await tester.pumpAndSettle();
-        await tester.ensureVisible(target);
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> tapMenu() async {
+        final target = find.byTooltip('เมนูหนี้');
+        await Scrollable.ensureVisible(tester.element(target), alignment: .5);
+        await tester.pumpAndSettle();
         await tester.tap(target);
         await tester.pumpAndSettle();
       }
@@ -105,7 +113,7 @@ void main() {
           -200,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('ปรับแต่งบัญชี');
         await tester.enterText(find.byType(TextFormField), 'รถของเรา');
@@ -115,7 +123,7 @@ void main() {
         await tester.tap(find.byTooltip('ชมพู'));
         await tester.pumpAndSettle();
         await tap('บันทึก');
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('กู้เพิ่ม');
         await tester.enterText(find.byType(TextFormField).first, '5000');
@@ -145,7 +153,7 @@ void main() {
           -200,
           scrollable: find.byType(Scrollable).first,
         );
-        await tester.tap(find.byTooltip('เมนูหนี้'));
+        await tapMenu();
         await tester.pumpAndSettle();
         await tap('ปรับแต่งบัญชี');
         await tap('ลบบัญชีนี้');
@@ -158,6 +166,52 @@ void main() {
         await tap('สร้างหนี้ก้อนแรก');
         expect(find.text('ให้เงินบิล\nช่วยเตือนนะ'), findsNothing);
         expect(find.text('บัญชีใหม่'), findsOneWidget);
+        final firstId = (await DebtRepository(database).list()).single.id;
+        await tap('1 / 1');
+        await tap('เพิ่มบัญชี');
+        await tester.enterText(find.byType(TextFormField).at(0), 'บัญชีที่สอง');
+        await tester.enterText(find.byType(TextFormField).at(1), '200');
+        await tap('สร้างบัญชีหนี้');
+        expect(find.text('บัญชีที่สอง'), findsOneWidget);
+        final secondId = (await DebtRepository(database).list()).last.id;
+        expect(await DebtRepository(database).defaultId(), firstId);
+        await tap('บันทึกการจ่าย');
+        await tester.enterText(find.byType(TextFormField).first, '50');
+        await tap('บันทึกการจ่าย');
+        expect(
+          (await DebtRepository(database).load(secondId))!.remaining,
+          15000,
+        );
+        expect(
+          (await DebtRepository(database).load(firstId))!.history,
+          isEmpty,
+        );
+        await tap('บัญชีที่สอง');
+        await tap('บัญชีใหม่');
+        expect(find.text('1 / 2'), findsOneWidget);
+        await tester.tap(find.byTooltip('บัญชีถัดไป'));
+        await tester.pumpAndSettle();
+        await tapMenu();
+        await tester.pumpAndSettle();
+        await tap('ปรับแต่งบัญชี');
+        await tap('ตั้งเป็นบัญชีหลัก');
+        expect(await DebtRepository(database).defaultId(), secondId);
+        await tester.tap(find.byTooltip('ปิด'));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox());
+        await database.close();
+        database = AppDatabase(databasePath: databasePath);
+        await boot();
+        expect(find.text('บัญชีที่สอง'), findsOneWidget);
+        expect(find.text('฿150'), findsNWidgets(2));
+        await tapMenu();
+        await tester.pumpAndSettle();
+        await tap('ปรับแต่งบัญชี');
+        await tap('ลบบัญชีนี้');
+        expect(find.textContaining('จะเป็นบัญชีหลักแทน'), findsOneWidget);
+        await tap('ลบอย่างถาวร');
+        expect(find.text('บัญชีใหม่'), findsOneWidget);
+        expect(await DebtRepository(database).defaultId(), firstId);
         expect(tester.takeException(), isNull);
       } finally {
         await tester.pumpWidget(const SizedBox());

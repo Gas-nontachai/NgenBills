@@ -58,9 +58,17 @@ class TestDebts extends DebtRepository {
   TestDebts(this.store) : super(AppDatabase(factory: databaseFactoryFfi));
   final Store store;
   @override
-  Future<DebtSummary?> load() async => store.summary;
+  Future<DebtSummary?> load([String? debtId]) async => store.summary;
   @override
-  Future<void> create({
+  Future<List<Debt>> list() async => [if (store.debt != null) store.debt!];
+  @override
+  Future<String?> defaultId() async => store.debt?.id;
+  @override
+  Future<List<DebtSummary>> loadAll() async => [
+    if (store.summary != null) store.summary!,
+  ];
+  @override
+  Future<String> create({
     required String name,
     required int amountMinor,
     String? note,
@@ -75,6 +83,7 @@ class TestDebts extends DebtRepository {
       createdAt: now,
       updatedAt: now,
     );
+    return 'debt';
   }
 }
 

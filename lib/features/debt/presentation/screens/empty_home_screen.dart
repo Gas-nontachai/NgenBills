@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../reminders/presentation/reminder_widgets.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
+import '../sheets/create_debt_sheet.dart';
 
 class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
@@ -48,7 +48,8 @@ class EmptyHomeScreen extends StatelessWidget {
                       AppButton(
                         label: 'เพิ่มหนี้ก้อนแรก',
                         icon: Icons.add_circle_outline_rounded,
-                        onPressed: () => context.push('/create'),
+                        onPressed: () =>
+                            CreateDebtSheet.open(context, additional: false),
                       ),
                       const SizedBox(height: 48),
                       const Row(

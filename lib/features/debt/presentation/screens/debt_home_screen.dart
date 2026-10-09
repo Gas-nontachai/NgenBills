@@ -25,6 +25,7 @@ import '../widgets/borrowing_list_item.dart';
 import 'empty_home_screen.dart';
 import '../widgets/account_swipe_card.dart';
 import '../sheets/account_picker_sheet.dart';
+import '../sheets/create_debt_sheet.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 
 class DebtHomeScreen extends ConsumerStatefulWidget {
@@ -44,8 +45,10 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
     super.dispose();
   }
 
-  void _create() {
-    if (!ref.read(paymentActionProvider)) context.push('/create');
+  Future<void> _create() async {
+    if (!ref.read(paymentActionProvider)) {
+      await CreateDebtSheet.open(context);
+    }
   }
 
   Future<void> _select(String id) async {

@@ -269,7 +269,7 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
               pageSnapping: false,
               physics: widget.enabled
                   ? _AccountPagePhysics(
-                      lastAccount: _last,
+                      lastAccount: () => _last,
                       parent: const ClampingScrollPhysics(),
                     )
                   : const NeverScrollableScrollPhysics(),
@@ -328,7 +328,9 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
 
 class _AccountPagePhysics extends PageScrollPhysics {
   const _AccountPagePhysics({required this.lastAccount, super.parent});
-  final int lastAccount;
+  // Scrollable retains physics when its runtime type stays the same. Read the
+  // current boundary so creating/deleting accounts cannot leave a stale limit.
+  final int Function() lastAccount;
   @override
   _AccountPagePhysics applyTo(ScrollPhysics? ancestor) => _AccountPagePhysics(
     lastAccount: lastAccount,
@@ -341,7 +343,7 @@ class _AccountPagePhysics extends PageScrollPhysics {
   ) {
     final metrics = position as PageMetrics;
     final lastPixels =
-        lastAccount * metrics.viewportDimension * metrics.viewportFraction;
+        lastAccount() * metrics.viewportDimension * metrics.viewportFraction;
     if (position.pixels > lastPixels ||
         (position.pixels >= lastPixels && velocity > 0)) {
       if ((position.pixels - lastPixels).abs() <

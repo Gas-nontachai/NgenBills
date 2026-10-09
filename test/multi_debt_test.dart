@@ -6,12 +6,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngenbills/app/app.dart';
+import 'package:ngenbills/app/router/app_router.dart';
 import 'package:ngenbills/core/database/app_database.dart';
 import 'package:ngenbills/features/debt/data/repositories/debt_repository.dart';
 import 'package:ngenbills/features/debt/domain/entities/debt.dart';
 import 'package:ngenbills/features/debt/domain/services/debt_summary.dart';
 import 'package:ngenbills/features/debt/presentation/providers/debt_providers.dart';
 import 'package:ngenbills/features/debt/presentation/sheets/account_picker_sheet.dart';
+import 'package:ngenbills/features/debt/presentation/sheets/create_debt_sheet.dart';
 import 'package:ngenbills/features/debt/presentation/widgets/account_swipe_card.dart';
 import 'package:ngenbills/features/payment/data/repositories/payment_repository.dart';
 import 'package:ngenbills/features/reminders/data/reminder_repository.dart';
@@ -40,15 +42,36 @@ class _MemoryDebts extends DebtRepository {
   @override
   Future<List<Debt>> list() async => accounts;
   @override
-  Future<String?> defaultId() async => primary;
+  Future<String?> defaultId() async => accounts.isEmpty ? null : primary;
   @override
   Future<void> setDefault(String id) async {
     primary = id;
   }
 
   @override
+  Future<String> create({
+    required String name,
+    required int amountMinor,
+    String? note,
+  }) async {
+    final id = '${accounts.length}';
+    accounts.add(
+      Debt(
+        id: id,
+        name: name.trim(),
+        initialAmountMinor: amountMinor,
+        note: note,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+    );
+    return id;
+  }
+
+  @override
   Future<DebtSummary?> load([String? id]) async {
     final key = id ?? '0';
+    if (!accounts.any((account) => account.id == key)) return null;
     reads[key] = (reads[key] ?? 0) + 1;
     if (failIds.contains(key)) throw StateError('read failed');
     if (id == '1') await pendingLoad?.future;
@@ -213,6 +236,196 @@ void main() {
     await tester.pumpAndSettle();
     return container;
   }
+
+  testWidgets(
+    'Carousel updates its last-page boundary without remounting or disabling',
+    (tester) async {
+      var ids = const ['0'];
+      var selected = '0';
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 350,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    update = setState;
+                    return AccountSwipeCard(
+                      enabled: true,
+                      accountIds: ids,
+                      selectedId: selected,
+                      onSelect: (id) async => update(() => selected = id),
+                      onCreate: () {},
+                      itemBuilder: (_, index, _) =>
+                          SizedBox(height: 220, child: Text('Account $index')),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      update(() {
+        ids = const ['0', '1'];
+        selected = '1';
+      });
+      await tester.pumpAndSettle();
+      expect(controller.page, closeTo(1, .001));
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(selected, '0');
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
+      await tester.pumpAndSettle();
+      expect(selected, '1');
+      expect(controller.page, closeTo(1, .001));
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller,
+        same(controller),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Creating through the picker and swipe opens sheets and selects each new account',
+    (tester) async {
+      final container = await boot(tester);
+      final controller = tester
+          .widget<PageView>(find.byType(PageView))
+          .controller!;
+      await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('เพิ่มบัญชี'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CreateDebtSheet), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(
+        container
+            .read(appRouterProvider)
+            .routeInformationProvider
+            .value
+            .uri
+            .path,
+        '/',
+      );
+
+      Future<void> saveAccount(String name) async {
+        final fields = find.descendant(
+          of: find.byType(CreateDebtSheet),
+          matching: find.byType(TextFormField),
+        );
+        await tester.enterText(fields.at(0), name);
+        await tester.enterText(fields.at(1), '300');
+        await tester.ensureVisible(find.text('สร้างบัญชีหนี้'));
+        await tester.tap(find.text('สร้างบัญชีหนี้'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CreateDebtSheet), findsNothing);
+      }
+
+      await saveAccount('บัญชีใหม่');
+      expect(container.read(selectedDebtIdProvider), '2');
+      expect(controller.page, closeTo(2, .001));
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller,
+        same(controller),
+      );
+      await tester.drag(find.byType(AccountSwipeCard), const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), '1');
+
+      final viewport = tester.getRect(find.byType(PageView));
+      final edgeSwipe = await tester.startGesture(
+        Offset(viewport.right - 2, viewport.center.dy),
+      );
+      await edgeSwipe.moveBy(const Offset(-30, 0));
+      await edgeSwipe.moveBy(const Offset(-230, 0));
+      await edgeSwipe.up();
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), '2');
+      expect(controller.page, closeTo(2, .001));
+
+      final hold = await tester.startGesture(
+        tester.getCenter(find.byType(AccountSwipeCard)),
+      );
+      await hold.moveBy(const Offset(-30, 0));
+      await hold.moveBy(const Offset(-100, 0));
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('ปล่อยเพื่อเพิ่มบัญชี'), findsOneWidget);
+      await hold.up();
+      await tester.pumpAndSettle();
+      expect(find.byType(CreateDebtSheet), findsOneWidget);
+      await saveAccount('บัญชีใหม่อีกครั้ง');
+      expect(container.read(selectedDebtIdProvider), '3');
+      expect(controller.page, closeTo(3, .001));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Creation sheet validates and fits a small phone with keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    final container = await boot(tester);
+    await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('เพิ่มบัญชี'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('สร้างบัญชีหนี้'));
+    await tester.tap(find.text('สร้างบัญชีหนี้'));
+    await tester.pumpAndSettle();
+    expect(find.text('กรุณากรอกชื่อหนี้'), findsOneWidget);
+    expect(memory.accounts.length, 2);
+    final fields = find.descendant(
+      of: find.byType(CreateDebtSheet),
+      matching: find.byType(TextFormField),
+    );
+    tester.view.viewInsets = const FakeViewPadding(bottom: 250);
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.at(0), 'บัญชีจอเล็ก');
+    await tester.enterText(fields.at(1), '500');
+    await tester.ensureVisible(find.text('สร้างบัญชีหนี้'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.text('สร้างบัญชีหนี้')).bottom,
+      lessThanOrEqualTo(318),
+    );
+    await tester.tap(find.text('สร้างบัญชีหนี้'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateDebtSheet), findsNothing);
+    expect(container.read(selectedDebtIdProvider), '2');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('First account opens a sheet and returns to the new account', (
+    tester,
+  ) async {
+    memory = _MemoryDebts()..accounts.clear();
+    final container = await boot(tester, seed: false);
+    await tester.tap(find.text('เพิ่มหนี้ก้อนแรก'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateDebtSheet), findsOneWidget);
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'บัญชีเริ่มต้น');
+    await tester.enterText(fields.at(1), '100');
+    await tester.ensureVisible(find.text('สร้างหนี้ก้อนแรก'));
+    await tester.tap(find.text('สร้างหนี้ก้อนแรก'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateDebtSheet), findsNothing);
+    expect(container.read(selectedDebtIdProvider), '0');
+    expect(find.text('บัญชีเริ่มต้น'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'Swipe, picker, background, write lock and restart select correct account',

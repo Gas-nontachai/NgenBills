@@ -43,10 +43,10 @@ class _NgenBillsAppState extends ConsumerState<NgenBillsApp>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(debtSummaryProvider, (previous, next) {
-      // A committed payment still needs reconciliation if the Home read fails.
-      // The controller performs its own fresh read and clears stale reminders
-      // when the database cannot be read safely.
+    ref.listen(accountsProvider, (previous, next) {
+      // Writes invalidate accounts even when the detail read fails. Switching
+      // the viewed account does not change the combined notification schedule,
+      // so it must not enqueue another full database/native reconciliation.
       if (!next.isLoading) {
         unawaited(ref.read(reminderControllerProvider.notifier).refresh());
       }

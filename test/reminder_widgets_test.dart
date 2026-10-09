@@ -68,9 +68,9 @@ void main() {
         overrides: [
           debtRepositoryProvider.overrideWithValue(debts),
           if (failHomeRead != null)
-            debtSummaryProvider.overrideWith((ref) async {
+            debtSummaryByIdProvider.overrideWith((ref, id) async {
               if (failHomeRead()) throw StateError('Home read failed');
-              return debts.load();
+              return debts.load(id);
             }),
           reminderRepositoryProvider.overrideWithValue(repository),
           notificationServiceProvider.overrideWithValue(service),
@@ -180,7 +180,6 @@ void main() {
       await tester.enterText(inputs.at(1), '37');
       await tap(tester, find.text('ตกลง').last);
       await tap(tester, find.byType(SwitchListTile));
-      await tap(tester, find.byType(SwitchListTile));
       expect(service.requests, 1);
       await tap(tester, find.text('บันทึกการตั้งค่า'));
       expect(repository.settings['debt']!.dueDay, 1);
@@ -212,6 +211,7 @@ void main() {
       await tap(tester, find.text('วันที่ 1'));
       await tap(tester, find.text('31'));
       await tap(tester, find.text('ยืนยัน'));
+      await tap(tester, find.byType(SwitchListTile));
       await tap(tester, find.text('7 วันก่อน'));
       await tap(tester, find.text('1 วันก่อน'));
       await tap(tester, find.text('บันทึกการตั้งค่า'));
@@ -243,7 +243,7 @@ void main() {
   );
 
   testWidgets(
-    'Fresh defaults wait for Save to request permission and persist even when denied',
+    'Fresh settings stay disabled until explicitly enabled and preserve denied intent',
     (tester) async {
       service.allowed = false;
       service.grantOnRequest = false;
@@ -251,11 +251,12 @@ void main() {
       await tap(tester, find.text('ตั้งวันครบกำหนดและแจ้งเตือน'));
       expect(
         tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        true,
+        false,
       );
       expect(find.text('วันที่ 1'), findsOneWidget);
       expect(service.requests, 0);
       expect(repository.settings, isEmpty);
+      await tap(tester, find.byType(SwitchListTile));
       await tap(tester, find.text('บันทึกการตั้งค่า'));
       expect(service.requests, 1);
       final saved = repository.settings['debt']!;
@@ -315,12 +316,18 @@ void main() {
       await boot(tester);
       expect(service.requests, 0);
       expect(find.text('ยังไม่ได้รับอนุญาตแจ้งเตือน'), findsOneWidget);
-      await tap(tester, find.byTooltip('การแจ้งเตือน'));
+      await tap(tester, find.byTooltip('ตั้งค่า'));
+      await tap(tester, find.text('การแจ้งเตือน').last);
       expect(find.text('ยังไม่อนุญาตการแจ้งเตือน'), findsOneWidget);
-      expect(find.text('เปิดการแจ้งเตือนในแอปอยู่'), findsOneWidget);
+      expect(find.text('เปิดเตือน · ครบกำหนดวันที่ 27'), findsOneWidget);
       await tap(tester, find.text('ยังไม่อนุญาตการแจ้งเตือน'));
       expect(service.settingsOpened, 1);
       await tap(tester, find.text('ปิดการแจ้งเตือนทั้งหมด'));
+      expect(repository.settings['debt']!.enabled, true);
+      await tap(tester, find.text('ยกเลิก'));
+      expect(repository.settings['debt']!.enabled, true);
+      await tap(tester, find.text('ปิดการแจ้งเตือนทั้งหมด'));
+      await tap(tester, find.text('ยืนยันปิดการแจ้งเตือนทั้งหมด'));
       expect(repository.settings['debt']!.enabled, false);
       expect(repository.settings['debt']!.dueDay, 27);
       expect(service.pending, isEmpty);
@@ -328,7 +335,7 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(find.text('อนุญาตการแจ้งเตือนแล้ว'), findsOneWidget);
-      expect(find.text('ปิดการแจ้งเตือนในแอปอยู่'), findsOneWidget);
+      expect(find.text('ปิดเตือนอยู่'), findsOneWidget);
     },
   );
 
@@ -412,7 +419,8 @@ void main() {
     );
     await tap(tester, find.byIcon(Icons.close).last);
     await tap(tester, find.byIcon(Icons.close));
-    await tap(tester, find.byTooltip('การแจ้งเตือน'));
+    await tap(tester, find.byTooltip('ตั้งค่า'));
+    await tap(tester, find.text('การแจ้งเตือน').last);
     await expectLater(
       find.byType(NgenBillsApp),
       matchesGoldenFile(golden('notification_settings')),
@@ -434,7 +442,9 @@ void main() {
       debts.amountMinor = 700000;
       failHomeRead = true;
       final context = tester.element(find.byType(NgenBillsApp));
-      ProviderScope.containerOf(context).invalidate(debtSummaryProvider);
+      final container = ProviderScope.containerOf(context);
+      container.invalidate(debtSummaryByIdProvider('debt'));
+      container.invalidate(accountsProvider);
       await tester.pumpAndSettle();
       expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsOneWidget);
       expect(service.pending.first.body, contains('฿7,000'));

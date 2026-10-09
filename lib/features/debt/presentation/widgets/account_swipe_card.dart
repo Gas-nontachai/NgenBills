@@ -40,7 +40,6 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
   Timer? _hold;
   int? _pointer;
   bool _startedAtLast = false;
-  bool _selectionDrag = false;
   int _epoch = 0;
   int? _returnEpoch;
   bool get _returning => _returnEpoch != null;
@@ -102,7 +101,10 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
     _pointer = null;
     _startedAtLast = false;
     setState(_clearHold);
-    if (!wasOverLast && !canceled) return;
+    if (!wasOverLast && !canceled) {
+      _selectSettledPage();
+      return;
+    }
     final target = canceled
         ? widget.accountIds.indexOf(widget.selectedId).clamp(0, _last)
         : _last;
@@ -137,17 +139,45 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
   }
 
   Future<void> _request(String id) async {
+    final epoch = _epoch;
     try {
       await widget.onSelect(id);
     } finally {
-      if (mounted) _syncSelection(structureChanged: false);
+      if (mounted && epoch == _epoch) {
+        _syncSelection(structureChanged: false);
+      }
     }
+  }
+
+  void _selectSettledPage() {
+    final epoch = _epoch;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_pages.hasClients ||
+          epoch != _epoch ||
+          !widget.enabled ||
+          _returning ||
+          _pointer != null ||
+          _pages.position.isScrollingNotifier.value) {
+        return;
+      }
+      final index = _page.round().clamp(0, _last);
+      if ((_page - index).abs() >= .01) return;
+      final id = widget.accountIds[index];
+      if (id != widget.selectedId) unawaited(_request(id));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _syncSelection({required bool structureChanged}) {
     final epoch = _epoch;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_pages.hasClients || epoch != _epoch) return;
+      // Keep an in-progress touch in control. Older callbacks are discarded by
+      // epoch; explicit picker/arrow selections may replace an older animation.
+      if (!structureChanged && widget.enabled && _pointer != null) {
+        return;
+      }
       final index = widget.accountIds.indexOf(widget.selectedId);
       if (index < 0 || (_page - index).abs() < .001) return;
       _pointer = null;
@@ -173,7 +203,6 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
     _heights.removeWhere((id, _) => !widget.accountIds.contains(id));
     if (changed || oldWidget.selectedId != widget.selectedId) {
       _epoch++;
-      _selectionDrag = false;
       _syncSelection(structureChanged: changed);
     }
     if (!widget.canCreate && oldWidget.canCreate) {
@@ -221,6 +250,7 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
           onPointerDown: (event) {
             if (!widget.enabled || _pointer != null) return;
             _epoch++;
+            _returnEpoch = null;
             _pointer = event.pointer;
             _startedAtLast = (_page - _last).abs() < .01;
           },
@@ -233,33 +263,14 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
           child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
               if (notification.depth != 0) return false;
-              if (notification is ScrollStartNotification &&
-                  notification.dragDetails != null) {
-                _selectionDrag = true;
-              }
               if (notification is ScrollUpdateNotification &&
                   notification.dragDetails != null) {
                 _checkHold();
               }
               if (notification is ScrollEndNotification &&
-                  _selectionDrag &&
                   !_returning &&
                   widget.enabled) {
-                _selectionDrag = false;
-                final index = _page.round().clamp(0, _last);
-                final id = widget.accountIds[index];
-                if (id != widget.selectedId && (_page - index).abs() < .01) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted &&
-                        widget.enabled &&
-                        !_returning &&
-                        widget.accountIds.indexOf(id) == index &&
-                        (_page - index).abs() < .01 &&
-                        id != widget.selectedId) {
-                      _request(id);
-                    }
-                  });
-                }
+                _selectSettledPage();
               }
               return false;
             },

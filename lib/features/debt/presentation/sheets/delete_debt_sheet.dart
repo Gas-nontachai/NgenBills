@@ -26,7 +26,10 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
   bool _saving = false;
   late final DebtSummary? _summary = _loadSummary();
   DebtSummary? _loadSummary() {
-    final summary = ref.read(debtSummaryProvider).asData?.value;
+    final summary = ref
+        .read(debtSummaryByIdProvider(widget.debt.id))
+        .asData
+        ?.value;
     return summary?.debt.id == widget.debt.id ? summary : null;
   }
 

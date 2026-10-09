@@ -496,21 +496,72 @@ void main() {
   );
 
   testWidgets(
-    'Failed target returns to current account and a new swipe retries',
+    'Rapid swipes keep latest selection when an older read completes',
+    (tester) async {
+      memory = _MemoryDebts();
+      final container = await boot(tester, seed: false);
+      memory.pendingLoad = Completer<void>();
+      container.invalidate(debtSummaryByIdProvider('1'));
+      await tester.pump();
+      await tester.dragFrom(
+        tester.getTopLeft(find.byType(AccountSwipeCard)) +
+            const Offset(200, 100),
+        const Offset(-260, 0),
+      );
+      for (var frame = 0; frame < 100; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(container.read(selectedDebtIdProvider), '1');
+      await tester.dragFrom(
+        tester.getTopLeft(find.byType(AccountSwipeCard)) +
+            const Offset(100, 100),
+        const Offset(260, 0),
+      );
+      for (var frame = 0; frame < 100; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(container.read(selectedDebtIdProvider), '0');
+      memory.pendingLoad!.complete();
+      await tester.pumpAndSettle();
+      expect(container.read(selectedDebtIdProvider), '0');
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).controller!.page,
+        closeTo(0, .001),
+      );
+      expect(find.text('฿100'), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('active-account-card')),
+          matching: find.text('฿200'),
+        ),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('1')), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Failed target stays selected and retry recovers without stale details',
     (tester) async {
       memory = _MemoryDebts()..failIds.add('1');
       final container = await boot(tester, seed: false);
       await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
       await tester.pumpAndSettle();
-      expect(container.read(selectedDebtIdProvider), isNull);
+      expect(container.read(selectedDebtIdProvider), '1');
       final pages = tester.widget<PageView>(find.byType(PageView)).controller!;
-      expect(pages.page, closeTo(0, .001));
-      expect(find.text('฿100'), findsNWidgets(2));
+      expect(pages.page, closeTo(1, .001));
+      expect(find.text('โหลดข้อมูลไม่สำเร็จ'), findsWidgets);
       memory.failIds.clear();
-      await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
+      await tester.ensureVisible(find.text('ลองอีกครั้ง').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('ลองอีกครั้ง').first);
       await tester.pumpAndSettle();
       expect(container.read(selectedDebtIdProvider), '1');
       expect(pages.page, closeTo(1, .001));
+      expect(container.read(debtSummaryByIdProvider('1')).hasError, false);
+      expect(container.read(debtSummaryByIdProvider('1')).value!.debt.id, '1');
       expect(tester.takeException(), isNull);
     },
   );
@@ -555,7 +606,11 @@ void main() {
         await tester.tap(find.text('ปลายทาง').last);
         await tester.pumpAndSettle();
         expect(
-          container.read(debtSummaryProvider).value!.debt.id,
+          container
+              .read(debtSummaryByIdProvider('${count - 1}'))
+              .value!
+              .debt
+              .id,
           '${count - 1}',
         );
         expect(controller!.page, closeTo(count - 1, .001));

@@ -15,11 +15,13 @@ import '../../../../core/widgets/sheets/guarded_form_state.dart';
 import '../../data/repositories/borrowing_repository.dart';
 import '../../domain/services/debt_summary.dart';
 import '../providers/debt_providers.dart';
+import '../widgets/account_context_header.dart';
 
 class AddBorrowingSheet extends ConsumerStatefulWidget {
   const AddBorrowingSheet({super.key, required this.summary});
   final DebtSummary summary;
   static Future<void> open(BuildContext context, DebtSummary summary) async {
+    final navigator = Navigator.of(context);
     final receipt = await showModalBottomSheet<BorrowingReceipt>(
       context: context,
       isScrollControlled: true,
@@ -27,9 +29,9 @@ class AddBorrowingSheet extends ConsumerStatefulWidget {
       enableDrag: false,
       builder: (_) => AddBorrowingSheet(summary: summary),
     );
-    if (receipt != null && context.mounted) {
+    if (receipt != null && navigator.mounted) {
       await showAppSheet<void>(
-        context,
+        navigator.context,
         BorrowingSuccessSheet(receipt: receipt),
       );
     }
@@ -117,6 +119,10 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AccountContextHeader(
+            debtId: widget.summary.debt.id,
+            name: widget.summary.debt.name,
+          ),
           AppCard(
             color: AppColors.primarySoft,
             child: Column(

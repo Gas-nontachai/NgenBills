@@ -20,12 +20,55 @@ import '../providers/debt_providers.dart';
 import '../widgets/debt_progress_card.dart';
 import '../widgets/borrowing_list_item.dart';
 import 'empty_home_screen.dart';
+import '../widgets/account_swipe_card.dart';
+import '../sheets/account_picker_sheet.dart';
+import '../../../../core/widgets/feedback/app_snackbar.dart';
 
 class DebtHomeScreen extends ConsumerWidget {
   const DebtHomeScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reminders = ref.watch(reminderControllerProvider);
+    final accounts = ref.watch(accountsProvider).value ?? [];
+    final defaultId = ref.watch(defaultDebtIdProvider).value;
+    final writing = ref.watch(paymentActionProvider);
+    void create() {
+      if (!ref.read(paymentActionProvider)) context.push('/create');
+    }
+
+    Future<void> select(String id) async {
+      if (ref.read(paymentActionProvider)) return;
+      try {
+        final latest = await ref.read(debtRepositoryProvider).list();
+        if (!context.mounted || ref.read(paymentActionProvider)) return;
+        if (latest.any((a) => a.id == id)) {
+          ref.read(selectedDebtIdProvider.notifier).select(id);
+        } else {
+          ref.read(selectedDebtIdProvider.notifier).select(null);
+          ref.invalidate(accountsProvider);
+          ref.invalidate(defaultDebtIdProvider);
+        }
+      } catch (error) {
+        if (context.mounted) AppSnackBar.failure(context, error);
+      }
+    }
+
+    Future<void> openPicker(String currentId) async {
+      if (ref.read(paymentActionProvider)) return;
+      final result = await AccountPickerSheet.open(
+        context,
+        accounts,
+        currentId,
+        defaultId,
+      );
+      if (!context.mounted || result == null) return;
+      if (result.create) {
+        create();
+      } else if (result.debtId != null) {
+        await select(result.debtId!);
+      }
+    }
+
     return ref
         .watch(debtSummaryProvider)
         .when(
@@ -45,6 +88,7 @@ class DebtHomeScreen extends ConsumerWidget {
             if (reminders.onboardingDone == false) {
               return const NotificationOnboardingScreen();
             }
+            final index = accounts.indexWhere((a) => a.id == summary.debt.id);
             return Scaffold(
               appBar: AppBar(
                 title: const AppBrandTitle(),
@@ -61,9 +105,130 @@ class DebtHomeScreen extends ConsumerWidget {
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 500),
                     child: ListView(
+                      key: ValueKey(summary.debt.id),
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                       children: [
-                        DebtProgressCard(summary: summary),
+                        if (writing)
+                          const Row(
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('กำลังบันทึก…'),
+                            ],
+                          ),
+                        AccountSwipeCard(
+                          key: ValueKey('swipe-${summary.debt.id}'),
+                          enabled: !writing,
+                          last: index == accounts.length - 1,
+                          onCreate: create,
+                          onPrevious: () {
+                            if (index > 0) {
+                              select(accounts[index - 1].id);
+                            }
+                          },
+                          onNext: () {
+                            if (index >= 0 && index + 1 < accounts.length) {
+                              select(accounts[index + 1].id);
+                            }
+                          },
+                          child: DebtProgressCard(
+                            summary: summary,
+                            accountHeader: InkWell(
+                              onTap: writing
+                                  ? null
+                                  : () => openPicker(summary.debt.id),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    summary.debt.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.title,
+                                  ),
+                                  if (defaultId == summary.debt.id)
+                                    const Text(
+                                      'บัญชีหลัก',
+                                      style: AppTypography.caption,
+                                    ),
+                                ],
+                              ),
+                            ),
+                            accountNavigation: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: AppColors.background,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'บัญชีก่อนหน้า',
+                                    style: IconButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(28, 32),
+                                      fixedSize: const Size(28, 32),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: writing || index <= 0
+                                        ? null
+                                        : () => select(accounts[index - 1].id),
+                                    icon: const Icon(
+                                      Icons.chevron_left,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  InkWell(
+                                    onTap: writing
+                                        ? null
+                                        : () => openPicker(summary.debt.id),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 2,
+                                        vertical: 8,
+                                      ),
+                                      child: Text(
+                                        '${index + 1} / ${accounts.length}',
+                                        style: AppTypography.caption.copyWith(
+                                          color: AppColors.text,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'บัญชีถัดไป',
+                                    style: IconButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(28, 32),
+                                      fixedSize: const Size(28, 32),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed:
+                                        writing ||
+                                            index < 0 ||
+                                            index + 1 >= accounts.length
+                                        ? null
+                                        : () => select(accounts[index + 1].id),
+                                    icon: const Icon(
+                                      Icons.chevron_right,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                         const ReminderSyncNotice(),
                         const SizedBox(height: 16),
                         AppButton(

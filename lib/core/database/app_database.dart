@@ -10,9 +10,11 @@ class AppDatabase {
   final DatabaseFactory _factory;
   final String? _path;
   Future<Database>? _opening;
+  Future<void>? _closing;
   Future<Database> get instance => _opening ??= _open();
   Future<Database> _open() async {
     try {
+      await _closing;
       final location =
           _path ?? path.join(await _factory.getDatabasesPath(), 'ngenbills.db');
       return await _factory.openDatabase(
@@ -29,9 +31,14 @@ class AppDatabase {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close() {
     final pending = _opening;
+    if (pending == null) return _closing ?? Future.value();
     _opening = null;
-    if (pending != null) await (await pending).close();
+    final closing = pending.then((db) => db.close());
+    _closing = closing;
+    return closing.whenComplete(() {
+      if (identical(_closing, closing)) _closing = null;
+    });
   }
 }

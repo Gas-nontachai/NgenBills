@@ -25,6 +25,13 @@ class ReminderRepository {
     );
   }
 
+  Future<void> disableAll() async {
+    final db = await database.instance;
+    await db.transaction((txn) async {
+      await txn.update('reminder_settings', {'enabled': 0});
+    });
+  }
+
   Future<bool> onboardingDone() async {
     final rows = await (await database.instance).query(
       'app_preferences',

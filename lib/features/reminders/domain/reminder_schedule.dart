@@ -20,6 +20,28 @@ class ScheduledReminder {
 }
 
 abstract final class ReminderSchedule {
+  // IDs are assigned after merging; every replacement first cancels the old schedule.
+  static List<ScheduledReminder> combine(List<ScheduledReminder> reminders) {
+    reminders.sort((a, b) {
+      final time = a.at.compareTo(b.at);
+      if (time != 0) return time;
+      final debt = a.debtId.compareTo(b.debtId);
+      return debt != 0 ? debt : a.id.compareTo(b.id);
+    });
+    return [
+      for (final (index, r) in reminders.take(60).indexed)
+        ScheduledReminder(
+          id: index + 1,
+          at: r.at,
+          dueDate: r.dueDate,
+          daysBefore: r.daysBefore,
+          title: r.title,
+          body: r.body,
+          debtId: r.debtId,
+        ),
+    ];
+  }
+
   static tz.TZDateTime dueDate(tz.Location zone, int year, int month, int day) {
     final lastDay = DateTime(year, month + 1, 0).day;
     return tz.TZDateTime(zone, year, month, day.clamp(1, lastDay));
@@ -82,7 +104,7 @@ abstract final class ReminderSchedule {
             : 'อีก $offset วันถึงวันชำระ';
         result.add(
           ScheduledReminder(
-            // One debt in this MVP; IDs identify the due month + reminder offset.
+            // Candidate ID identifies month and offset; combine assigns native IDs.
             id: (due.year * 12 + due.month) * 8 + offset,
             at: at,
             dueDate: due,

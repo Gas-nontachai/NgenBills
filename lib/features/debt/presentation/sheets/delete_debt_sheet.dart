@@ -44,7 +44,8 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
           );
       if (!saved) return;
       // Reconcile explicitly before leaving: deleting the final debt clears native reminders.
-      await ref.read(reminderControllerProvider.notifier).refresh();
+      // Reconciliation is independent of the committed deletion.
+      ref.read(reminderControllerProvider.notifier).refresh();
       if (mounted) {
         AppSnackBar.show(context, 'ลบบัญชีแล้ว');
         setState(() => _saving = false);
@@ -58,13 +59,25 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
     }
   }
 
+  String _defaultImpact() {
+    final accounts = ref.watch(accountsProvider).value ?? [];
+    if (accounts.length == 1) return '\nหลังลบจะกลับหน้าว่าง';
+    if (ref.watch(defaultDebtIdProvider).value == widget.debt.id) {
+      final remaining = accounts.where((a) => a.id != widget.debt.id);
+      if (remaining.isNotEmpty) {
+        return '\n“${remaining.first.name}” จะเป็นบัญชีหลักแทน';
+      }
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
     child: AppDeleteSheet(
-      title: 'ลบบัญชีนี้?',
+      title: 'ลบบัญชี “${widget.debt.name}”?',
       message:
-          'การลบบัญชีจะลบประวัติทั้งหมด และยกเลิกการแจ้งเตือนของบัญชีนี้ด้วย',
+          'การลบบัญชีจะลบประวัติทั้งหมด และยกเลิกการแจ้งเตือนของบัญชีนี้ด้วย${_defaultImpact()}',
       warningTitle: 'บัญชีและข้อมูลทั้งหมดจะถูกลบถาวร',
       warningMessage: 'ไม่สามารถกู้คืนข้อมูลได้',
       warningItems: const [

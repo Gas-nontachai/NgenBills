@@ -19,100 +19,135 @@ import '../sheets/add_borrowing_sheet.dart';
 import '../sheets/customize_account_sheet.dart';
 
 class DebtProgressCard extends ConsumerWidget {
-  const DebtProgressCard({super.key, required this.summary});
+  const DebtProgressCard({
+    super.key,
+    required this.summary,
+    this.accountHeader,
+    this.accountNavigation,
+  });
   final DebtSummary summary;
+  final Widget? accountHeader;
+  final Widget? accountNavigation;
   @override
   Widget build(BuildContext context, WidgetRef ref) => AppCard(
     child: Column(
       children: [
-        Row(
-          children: [
-            AccountAvatar(
-              iconKey: summary.debt.iconKey,
-              colorKey: summary.debt.colorKey,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(summary.debt.name, style: AppTypography.title),
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'เมนูหนี้',
-              position: PopupMenuPosition.under,
-              offset: const Offset(0, 8),
-              constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
-              padding: EdgeInsets.zero,
-              menuPadding: const EdgeInsets.all(8),
-              color: AppColors.surface,
-              surfaceTintColor: Colors.transparent,
-              elevation: 8,
-              shadowColor: AppColors.text.withValues(alpha: 0.14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: AppColors.border),
-              ),
-              enabled: !ref.watch(paymentActionProvider),
-              onSelected: (value) {
-                switch (value) {
-                  case 'borrow':
-                    AddBorrowingSheet.open(context, summary);
-                  case 'customize':
-                    CustomizeAccountSheet.open(context, summary.debt);
-                  case 'reminders':
-                    ReminderSettingsSheet.open(
-                      context,
-                      summary.debt.id,
-                      summary.debt.name,
-                    );
-                }
-              },
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'borrow',
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: _AccountMenuAction(
-                    icon: Icons.add_rounded,
-                    title: 'กู้เพิ่ม',
-                    subtitle: 'เพิ่มยอดหนี้และบันทึกประวัติ',
-                    prominent: true,
-                  ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth < 300 ||
+                MediaQuery.textScalerOf(context).scale(14) > 19;
+            final menu = SizedBox(
+              width: 32,
+              child: PopupMenuButton<String>(
+                tooltip: 'เมนูหนี้',
+                position: PopupMenuPosition.under,
+                offset: const Offset(0, 8),
+                constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
+                padding: EdgeInsets.zero,
+                menuPadding: const EdgeInsets.all(8),
+                color: AppColors.surface,
+                surfaceTintColor: Colors.transparent,
+                elevation: 8,
+                shadowColor: AppColors.text.withValues(alpha: 0.14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: AppColors.border),
                 ),
-                const PopupMenuItem<String>(
-                  enabled: false,
-                  height: 9,
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Divider(height: 9, color: AppColors.border),
-                ),
-                const PopupMenuItem(
-                  value: 'customize',
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  child: _AccountMenuAction(
-                    icon: Icons.edit_outlined,
-                    title: 'ปรับแต่งบัญชี',
-                    subtitle: 'เปลี่ยนชื่อ ไอคอน และสีบัญชี',
+                enabled: !ref.watch(paymentActionProvider),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'borrow':
+                      AddBorrowingSheet.open(context, summary);
+                    case 'customize':
+                      CustomizeAccountSheet.open(context, summary.debt);
+                    case 'reminders':
+                      ReminderSettingsSheet.open(
+                        context,
+                        summary.debt.id,
+                        summary.debt.name,
+                      );
+                  }
+                },
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'borrow',
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: _AccountMenuAction(
+                      icon: Icons.add_rounded,
+                      title: 'กู้เพิ่ม',
+                      subtitle: 'เพิ่มยอดหนี้และบันทึกประวัติ',
+                      prominent: true,
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'reminders',
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+                  const PopupMenuItem<String>(
+                    enabled: false,
+                    height: 9,
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Divider(height: 9, color: AppColors.border),
                   ),
-                  enabled:
-                      !ref.watch(reminderControllerProvider).busy &&
-                      !ref.watch(reminderControllerProvider).loadError,
-                  child: _AccountMenuAction(
-                    icon: Icons.notifications_none_rounded,
-                    title: 'ตั้งค่าการแจ้งเตือน',
-                    subtitle: 'จัดการเตือนวันชำระ',
+                  const PopupMenuItem(
+                    value: 'customize',
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    child: _AccountMenuAction(
+                      icon: Icons.edit_outlined,
+                      title: 'ปรับแต่งบัญชี',
+                      subtitle: 'เปลี่ยนชื่อ ไอคอน และสีบัญชี',
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'reminders',
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     enabled:
                         !ref.watch(reminderControllerProvider).busy &&
                         !ref.watch(reminderControllerProvider).loadError,
+                    child: _AccountMenuAction(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'ตั้งค่าการแจ้งเตือน',
+                      subtitle: 'จัดการเตือนวันชำระ',
+                      enabled:
+                          !ref.watch(reminderControllerProvider).busy &&
+                          !ref.watch(reminderControllerProvider).loadError,
+                    ),
                   ),
+                ],
+                icon: const Icon(Icons.more_vert, color: AppColors.primaryDark),
+              ),
+            );
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    AccountAvatar(
+                      iconKey: summary.debt.iconKey,
+                      colorKey: summary.debt.colorKey,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child:
+                          accountHeader ??
+                          Text(summary.debt.name, style: AppTypography.title),
+                    ),
+                    if (!stacked && accountNavigation != null) ...[
+                      const SizedBox(width: 8),
+                      accountNavigation!,
+                    ],
+                    menu,
+                  ],
                 ),
+                if (stacked && accountNavigation != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: accountNavigation!,
+                  ),
+                ],
               ],
-              icon: const Icon(Icons.more_vert, color: AppColors.primaryDark),
-            ),
-          ],
+            );
+          },
         ),
         if ((summary.debt.note ?? '').isNotEmpty) ...[
           const SizedBox(height: 10),

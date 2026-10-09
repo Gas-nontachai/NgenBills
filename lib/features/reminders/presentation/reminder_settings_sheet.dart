@@ -36,7 +36,10 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
   int? _day = 1;
   Set<int> _advanceDays = {3};
   TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
-  bool _enabled = true, _onDueDate = true, _busy = false;
+  // Without saved settings this account has no active reminders. Do not show
+  // an enabled switch merely because the form has default dates and times.
+  bool _enabled = false, _onDueDate = true, _busy = false;
+  bool _permissionRequested = false;
 
   @override
   void initState() {
@@ -63,6 +66,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
       final allowed = await ref
           .read(reminderControllerProvider.notifier)
           .requestPermission();
+      _permissionRequested = true;
       if (mounted && !allowed) {
         AppSnackBar.show(
           context,
@@ -88,6 +92,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
     try {
       final controller = ref.read(reminderControllerProvider.notifier);
       if (_enabled &&
+          !_permissionRequested &&
           ref.read(reminderControllerProvider).permissionAllowed != true) {
         await controller.requestPermission();
         if (!mounted) return;

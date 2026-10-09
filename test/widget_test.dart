@@ -405,9 +405,9 @@ void main() {
             FakeNotificationService(),
           ),
           debtRepositoryProvider.overrideWithValue(TestDebts(Store())),
-          debtSummaryProvider.overrideWith((ref) async {
+          accountsProvider.overrideWith((ref) async {
             if (attempts++ == 0) throw StateError('read failed');
-            return null;
+            return [];
           }),
         ],
         child: const NgenBillsApp(),

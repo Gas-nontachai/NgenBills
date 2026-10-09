@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_colors.dart';
 import '../../../reminders/presentation/reminder_widgets.dart';
@@ -11,6 +12,15 @@ class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
   @override
   Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      actions: [
+        IconButton(
+          tooltip: 'ตั้งค่าและกู้คืนข้อมูล',
+          onPressed: () => context.push('/settings'),
+          icon: const Icon(Icons.settings_outlined),
+        ),
+      ],
+    ),
     body: SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) => SingleChildScrollView(

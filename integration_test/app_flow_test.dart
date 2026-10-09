@@ -253,7 +253,7 @@ void main() {
         await held.up();
         await tester.pumpAndSettle();
         await waitForText('สร้างบัญชีหนี้');
-        await tester.tap(find.byTooltip('กลับ'));
+        await tester.tap(find.byTooltip('ปิด'));
         await tester.pumpAndSettle();
         await waitForPosition('2 / 2');
         await tap('บัญชีที่สอง');

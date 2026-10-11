@@ -988,6 +988,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'Picker drag saves order, preserves selection and rolls back failures',
+    (tester) async {
+      var fail = false;
+      final saved = <List<String>>[];
+      final accounts = [
+        for (var i = 0; i < 3; i++)
+          Debt(
+            id: '$i',
+            name: 'Account $i',
+            initialAmountMinor: 100,
+            createdAt: DateTime(2026),
+            updatedAt: DateTime(2026),
+          ),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AccountPickerSheet(
+              accounts: accounts,
+              selectedId: '0',
+              defaultId: '0',
+              onReorder: (ids) async {
+                if (fail) throw StateError('save failed');
+                saved.add(List.of(ids));
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byIcon(Icons.drag_handle).first,
+        const Offset(0, 130),
+      );
+      await tester.pumpAndSettle();
+      expect(saved.single, ['1', '0', '2']);
+      expect(
+        tester.widget<ListTile>(find.byKey(const ValueKey('0'))).selected,
+        true,
+      );
+      final ordered = tester
+          .widgetList<ListTile>(find.byType(ListTile))
+          .map((tile) => tile.key)
+          .toList();
+      fail = true;
+      await tester.drag(
+        find.byIcon(Icons.drag_handle).first,
+        const Offset(0, 130),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .map((tile) => tile.key),
+        ordered,
+      );
+      expect(
+        find.text('บันทึกลำดับไม่สำเร็จ กรุณาลองอีกครั้ง'),
+        findsOneWidget,
+      );
+      await tester.enterText(find.byType(TextField), 'Account 0');
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<ReorderableDragStartListener>(
+              find.byType(ReorderableDragStartListener),
+            )
+            .enabled,
+        false,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Picker visual reference', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

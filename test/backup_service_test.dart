@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ngenbills/core/database/app_database.dart';
 import 'package:ngenbills/core/errors/app_exception.dart';
 import 'package:ngenbills/features/backup/data/backup_service.dart';
+import 'package:ngenbills/features/debt/data/repositories/debt_repository.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -63,6 +64,43 @@ void main() {
       jsonDecode(utf8.decode(await service.export())) as Map<String, dynamic>;
   Uint8List encode(Map<String, dynamic> value) =>
       Uint8List.fromList(utf8.encode(jsonEncode(value)));
+
+  test('Backup restores custom account order into a fresh database', () async {
+    final debts = DebtRepository(database);
+    final second = await debts.create(name: 'สอง', amountMinor: 100);
+    final third = await debts.create(name: 'สาม', amountMinor: 100);
+    final order = [third, 'original', second];
+    await debts.reorder(order);
+    final snapshot = service.decode(await service.export());
+    expect(
+      snapshot.tables['app_preferences']!.singleWhere(
+        (row) => row['key'] == 'account_order',
+      )['value'],
+      jsonEncode(order),
+    );
+    final target = AppDatabase(
+      factory: databaseFactoryFfi,
+      databasePath: inMemoryDatabasePath,
+    );
+    addTearDown(target.close);
+    await BackupService(target).restore(snapshot);
+    final restored = DebtRepository(target);
+    expect((await restored.list()).map((debt) => debt.id), order);
+    expect((await restored.loadAll()).map((summary) => summary.debt.id), order);
+    expect(await restored.defaultId(), 'original');
+  });
+
+  test(
+    'Legacy backup without account order clears current custom order',
+    () async {
+      final debts = DebtRepository(database);
+      final second = await debts.create(name: 'สอง', amountMinor: 100);
+      final legacy = service.decode(await service.export());
+      await debts.reorder([second, 'original']);
+      await service.restore(legacy);
+      expect((await debts.list()).map((debt) => debt.id), ['original', second]);
+    },
+  );
 
   test(
     'UTF-8 backup restores all five tables and replaces current configuration',

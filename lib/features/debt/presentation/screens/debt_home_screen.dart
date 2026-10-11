@@ -71,6 +71,10 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
       ref.read(accountsProvider).value ?? [],
       currentId,
       ref.read(defaultDebtIdProvider).value,
+      onReorder: (ids) async {
+        await ref.read(debtRepositoryProvider).reorder(ids);
+        ref.invalidate(accountsProvider);
+      },
     );
     if (!mounted || result == null) return;
     if (result.create) {

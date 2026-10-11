@@ -19,22 +19,26 @@ class AccountPickerSheet extends StatefulWidget {
     required this.accounts,
     required this.selectedId,
     required this.defaultId,
+    this.onReorder,
   });
   final List<Debt> accounts;
   final String selectedId;
   final String? defaultId;
+  final Future<void> Function(List<String>)? onReorder;
 
   static Future<AccountPickerResult?> open(
     BuildContext context,
     List<Debt> accounts,
     String selectedId,
-    String? defaultId,
-  ) => showAppSheet<AccountPickerResult>(
+    String? defaultId, {
+    Future<void> Function(List<String>)? onReorder,
+  }) => showAppSheet<AccountPickerResult>(
     context,
     AccountPickerSheet(
       accounts: accounts,
       selectedId: selectedId,
       defaultId: defaultId,
+      onReorder: onReorder,
     ),
   );
 
@@ -43,20 +47,46 @@ class AccountPickerSheet extends StatefulWidget {
 }
 
 class _AccountPickerSheetState extends State<AccountPickerSheet> {
+  late List<Debt> _accounts;
+  bool _saving = false;
   final _search = TextEditingController();
   final _scroll = ScrollController();
   @override
   void initState() {
     super.initState();
+    _accounts = List.of(widget.accounts);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
       final index = widget.accounts.indexWhere(
         (a) => a.id == widget.selectedId,
       );
       _scroll.jumpTo(
-        (index * 76.0).clamp(0.0, _scroll.position.maxScrollExtent),
+        (index * 64.0).clamp(0.0, _scroll.position.maxScrollExtent),
       );
     });
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) async {
+    if (_saving || _search.text.trim().isNotEmpty || widget.onReorder == null) {
+      return;
+    }
+    if (oldIndex == newIndex) return;
+    final previous = List<Debt>.of(_accounts);
+    setState(() {
+      _accounts.insert(newIndex, _accounts.removeAt(oldIndex));
+      _saving = true;
+    });
+    try {
+      await widget.onReorder!(_accounts.map((a) => a.id).toList());
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _accounts = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('บันทึกลำดับไม่สำเร็จ กรุณาลองอีกครั้ง')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   @override
@@ -69,137 +99,173 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final query = _search.text.trim().toLowerCase();
-    final accounts = widget.accounts
+    final accounts = _accounts
         .where((a) => a.name.toLowerCase().contains(query))
         .toList();
     final media = MediaQuery.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: math.min(
-            media.size.height * .8,
-            media.size.height -
-                media.viewInsets.bottom -
-                media.padding.top -
-                media.padding.bottom,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'เลือกบัญชี',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
+    return PopScope(
+      canPop: !_saving,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: media.viewInsets.bottom),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: math.min(
+              media.size.height * .8,
+              media.size.height -
+                  media.viewInsets.bottom -
+                  media.padding.top -
+                  media.padding.bottom,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          'เลือกบัญชี',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
+                      IconButton(
+                        tooltip: 'ปิด',
+                        onPressed: _saving
+                            ? null
+                            : () => Navigator.pop(context),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                  TextField(
+                    controller: _search,
+                    enabled: !_saving,
+                    onChanged: (_) {
+                      setState(() {});
+                      if (_scroll.hasClients) _scroll.jumpTo(0);
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'ค้นหาชื่อบัญชี',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'ล้างคำค้น',
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _search.clear();
+                                setState(() {});
+                              },
+                            ),
                     ),
-                    IconButton(
-                      tooltip: 'ปิด',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                TextField(
-                  controller: _search,
-                  onChanged: (_) {
-                    setState(() {});
-                    if (_scroll.hasClients) _scroll.jumpTo(0);
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'ค้นหาชื่อบัญชี',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _search.text.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'ล้างคำค้น',
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _search.clear();
-                              setState(() {});
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: accounts.isEmpty
+                        ? Center(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('ไม่พบบัญชี'),
+                                  TextButton(
+                                    onPressed: () {
+                                      _search.clear();
+                                      setState(() {});
+                                    },
+                                    child: const Text('ล้างคำค้น'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ReorderableListView.builder(
+                            scrollController: _scroll,
+                            buildDefaultDragHandles: false,
+                            onReorderItem: _reorder,
+                            itemExtent: 64,
+                            itemCount: accounts.length,
+                            itemBuilder: (context, index) {
+                              final debt = accounts[index];
+                              final selected = debt.id == widget.selectedId;
+                              return ListTile(
+                                key: ValueKey(debt.id),
+                                contentPadding: EdgeInsets.zero,
+                                selected: selected,
+                                leading: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.onReorder != null)
+                                      ReorderableDragStartListener(
+                                        index: index,
+                                        enabled: !_saving && query.isEmpty,
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(12),
+                                          child: Icon(
+                                            Icons.drag_handle,
+                                            semanticLabel:
+                                                'ลากเพื่อจัดลำดับบัญชี',
+                                            color: !_saving && query.isEmpty
+                                                ? null
+                                                : Theme.of(context)
+                                                      .disabledColor,
+                                          ),
+                                        ),
+                                      ),
+                                    AccountAvatar(
+                                      iconKey: debt.iconKey,
+                                      colorKey: debt.colorKey,
+                                    ),
+                                  ],
+                                ),
+                                title: Text(
+                                  debt.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: debt.id == widget.defaultId
+                                    ? const Text(
+                                        'บัญชีหลัก',
+                                        style: AppTypography.caption,
+                                      )
+                                    : null,
+                                trailing: Icon(
+                                  selected
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_unchecked,
+                                ),
+                                onTap: _saving
+                                    ? null
+                                    : () => Navigator.pop(
+                                        context,
+                                        AccountPickerResult(debtId: debt.id),
+                                      ),
+                              );
                             },
                           ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: accounts.isEmpty
-                      ? Center(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('ไม่พบบัญชี'),
-                                TextButton(
-                                  onPressed: () {
-                                    _search.clear();
-                                    setState(() {});
-                                  },
-                                  child: const Text('ล้างคำค้น'),
-                                ),
-                              ],
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _saving
+                          ? null
+                          : () => Navigator.pop(
+                              context,
+                              const AccountPickerResult(create: true),
                             ),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: _scroll,
-                          itemExtent: 76,
-                          itemCount: accounts.length,
-                          itemBuilder: (context, index) {
-                            final debt = accounts[index];
-                            final selected = debt.id == widget.selectedId;
-                            return ListTile(
-                              selected: selected,
-                              leading: AccountAvatar(
-                                iconKey: debt.iconKey,
-                                colorKey: debt.colorKey,
-                              ),
-                              title: Text(
-                                debt.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: debt.id == widget.defaultId
-                                  ? const Text(
-                                      'บัญชีหลัก',
-                                      style: AppTypography.caption,
-                                    )
-                                  : null,
-                              trailing: Icon(
-                                selected
-                                    ? Icons.radio_button_checked
-                                    : Icons.radio_button_unchecked,
-                              ),
-                              onTap: () => Navigator.pop(
-                                context,
-                                AccountPickerResult(debtId: debt.id),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(
-                      context,
-                      const AccountPickerResult(create: true),
+                      icon: const Icon(Icons.add),
+                      label: const Text('เพิ่มบัญชี'),
                     ),
-                    icon: const Icon(Icons.add),
-                    label: const Text('เพิ่มบัญชี'),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

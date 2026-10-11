@@ -36,6 +36,24 @@ void main() {
   });
   tearDown(() => db.close());
 
+  test('Account order persists and handles new and deleted accounts', () async {
+    final second = await debts.create(name: 'สอง', amountMinor: 100);
+    final third = await debts.create(name: 'สาม', amountMinor: 100);
+    await debts.reorder([third, id, second]);
+    expect((await debts.list()).map((a) => a.id), [third, id, second]);
+    expect((await debts.loadAll()).map((a) => a.debt.id), [third, id, second]);
+    expect(await debts.defaultId(), id);
+    await expectLater(
+      debts.reorder([id, id, second]),
+      throwsA(isA<AppException>()),
+    );
+    expect((await debts.list()).map((a) => a.id), [third, id, second]);
+    final fourth = await debts.create(name: 'สี่', amountMinor: 100);
+    expect((await debts.list()).map((a) => a.id), [third, id, second, fourth]);
+    await debts.delete(third);
+    expect((await debts.list()).map((a) => a.id), [id, second, fourth]);
+  });
+
   test(
     'Borrowing preserves principal and uses total debt for payment checks',
     () async {
@@ -305,8 +323,11 @@ void main() {
       date: DateTime(2026, 1, 3),
       note: 'Borrowing note',
     );
+    final otherId = await repo.create(name: 'Second', amountMinor: 100);
+    await repo.reorder([otherId, debtId]);
     await persistent.close();
-    summary = (await repo.load())!;
+    expect((await repo.list()).map((a) => a.id), [otherId, debtId]);
+    summary = (await repo.load(debtId))!;
     expect(summary.debt.name, 'Renamed');
     expect(summary.debt.iconKey, 'travel');
     expect(summary.debt.colorKey, 'purple');

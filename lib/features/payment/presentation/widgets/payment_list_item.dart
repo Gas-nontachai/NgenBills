@@ -38,7 +38,26 @@ class PaymentListItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('ชำระหนี้', style: AppTypography.body),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text('ชำระหนี้', style: AppTypography.body),
+                        ),
+                        if (payment.isEdited) ...[
+                          const SizedBox(width: 6),
+                          const Tooltip(
+                            message: 'แก้ไขแล้ว',
+                            excludeFromSemantics: true,
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.secondary,
+                              semanticLabel: 'แก้ไขแล้ว',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     Text(
                       AppDates.format(payment.date),
                       style: AppTypography.caption,

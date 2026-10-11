@@ -17,7 +17,8 @@ Future<void> createSchema(Database db) async {
     amount_minor INTEGER NOT NULL CHECK(amount_minor > 0 AND amount_minor <= 99999999999999),
     payment_date TEXT NOT NULL,
     note TEXT CHECK(note IS NULL OR length(note) <= 500),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_edited INTEGER NOT NULL DEFAULT 0 CHECK(is_edited IN (0, 1))
   )""");
   await db.execute(
     'CREATE INDEX payments_debt_date ON payments(debt_id, payment_date DESC, created_at DESC)',
@@ -49,7 +50,8 @@ Future<void> createBorrowingSchema(DatabaseExecutor db) async {
     amount_minor INTEGER NOT NULL CHECK(amount_minor > 0 AND amount_minor <= 99999999999999),
     borrowing_date TEXT NOT NULL,
     note TEXT CHECK(note IS NULL OR length(note) <= 500),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    is_edited INTEGER NOT NULL DEFAULT 0 CHECK(is_edited IN (0, 1))
   )""");
   await db.execute(
     'CREATE INDEX borrowings_debt_date ON borrowings(debt_id, borrowing_date DESC, created_at DESC)',

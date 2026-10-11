@@ -89,6 +89,7 @@ class _CustomizeAccountSheetState
   @override
   Widget build(BuildContext context) {
     final busy = saving || ref.watch(paymentActionProvider);
+    final isDefault = ref.watch(defaultDebtIdProvider).value == widget.debt.id;
     return guardedSheet(
       title: 'ปรับแต่งบัญชี',
       child: Form(
@@ -209,34 +210,93 @@ class _CustomizeAccountSheetState
                   .toList(),
             ),
             const SizedBox(height: 16),
-            SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('ตั้งเป็นบัญชีหลัก'),
-              subtitle: const Text('แสดงบัญชีนี้เมื่อเปิดแอปใหม่'),
-              value: ref.watch(defaultDebtIdProvider).value == widget.debt.id,
-              onChanged:
-                  busy ||
-                      ref.watch(defaultDebtIdProvider).value == widget.debt.id
-                  ? null
-                  : (value) async {
-                      if (!value) return;
-                      try {
-                        await ref
-                            .read(paymentActionProvider.notifier)
-                            .run(
-                              () => ref
-                                  .read(debtRepositoryProvider)
-                                  .setDefault(widget.debt.id),
-                            );
-                        if (context.mounted) {
-                          AppSnackBar.show(context, 'ตั้งเป็นบัญชีหลักแล้ว');
-                        }
-                      } catch (error) {
-                        if (context.mounted) {
-                          AppSnackBar.failure(context, error);
-                        }
-                      }
-                    },
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 12),
+            MergeSemantics(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.home_outlined,
+                              size: 16,
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'บัญชีหลัก',
+                                style: AppTypography.small.copyWith(
+                                  color: AppColors.text,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'แสดงบัญชีนี้เมื่อเปิดแอปใหม่',
+                          style: AppTypography.caption,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Switch(
+                    value: isDefault,
+                    thumbColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? AppColors.primaryDark
+                          : AppColors.secondary,
+                    ),
+                    trackColor: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? AppColors.primarySoft
+                          : AppColors.border,
+                    ),
+                    trackOutlineColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                    thumbIcon: WidgetStateProperty.resolveWith(
+                      (states) => states.contains(WidgetState.selected)
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: AppColors.surface,
+                              size: 14,
+                            )
+                          : null,
+                    ),
+                    onChanged: busy || isDefault
+                        ? null
+                        : (value) async {
+                            if (!value) return;
+                            try {
+                              await ref
+                                  .read(paymentActionProvider.notifier)
+                                  .run(
+                                    () => ref
+                                        .read(debtRepositoryProvider)
+                                        .setDefault(widget.debt.id),
+                                  );
+                              if (context.mounted) {
+                                AppSnackBar.show(
+                                  context,
+                                  'ตั้งเป็นบัญชีหลักแล้ว',
+                                );
+                              }
+                            } catch (error) {
+                              if (context.mounted) {
+                                AppSnackBar.failure(context, error);
+                              }
+                            }
+                          },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             AppButton(

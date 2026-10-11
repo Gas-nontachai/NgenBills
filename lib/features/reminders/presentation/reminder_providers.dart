@@ -252,4 +252,16 @@ class ReminderController extends Notifier<ReminderState> {
 
   Future<void> openSystemSettings() =>
       _enqueue(() => ref.read(notificationServiceProvider).openSettings());
+
+  Future<bool> manageSystemPermission() => _enqueue(() async {
+    final service = ref.read(notificationServiceProvider);
+    // Read the current device status; it may have changed outside the app.
+    if (await service.permissionAllowed()) {
+      await service.openSettings();
+      return true;
+    }
+    final allowed = await service.requestPermission();
+    await _sync();
+    return allowed;
+  });
 }

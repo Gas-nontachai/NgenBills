@@ -1007,7 +1007,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: AccountPickerSheet(
-              accounts: accounts,
+              accounts: [accounts[1], accounts[0], accounts[2]],
               selectedId: '0',
               defaultId: '0',
               onReorder: (ids) async {
@@ -1019,12 +1019,35 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .map((tile) => tile.key),
+        [const ValueKey('0'), const ValueKey('1'), const ValueKey('2')],
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('0')),
+          matching: find.byType(ReorderableDragStartListener),
+        ),
+        findsNothing,
+      );
+      final reorder = tester.widget<ReorderableListView>(
+        find.byType(ReorderableListView),
+      ).onReorderItem!;
+      reorder(0, 2);
+      reorder(1, 0);
+      await tester.pumpAndSettle();
+      expect(saved, isEmpty);
       await tester.drag(
         find.byIcon(Icons.drag_handle).first,
         const Offset(0, 130),
       );
       await tester.pumpAndSettle();
-      expect(saved.single, ['1', '0', '2']);
+      expect(saved.single, ['0', '2', '1']);
+      reorder(2, 0);
+      await tester.pumpAndSettle();
+      expect(saved.last, ['0', '1', '2']);
       expect(
         tester.widget<ListTile>(find.byKey(const ValueKey('0'))).selected,
         true,
@@ -1049,7 +1072,7 @@ void main() {
         find.text('บันทึกลำดับไม่สำเร็จ กรุณาลองอีกครั้ง'),
         findsOneWidget,
       );
-      await tester.enterText(find.byType(TextField), 'Account 0');
+      await tester.enterText(find.byType(TextField), 'Account 1');
       await tester.pumpAndSettle();
       expect(
         tester

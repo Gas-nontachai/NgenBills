@@ -55,11 +55,13 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
   void initState() {
     super.initState();
     _accounts = List.of(widget.accounts);
+    final defaultIndex = _accounts.indexWhere((a) => a.id == widget.defaultId);
+    if (defaultIndex > 0) {
+      _accounts.insert(0, _accounts.removeAt(defaultIndex));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scroll.hasClients) return;
-      final index = widget.accounts.indexWhere(
-        (a) => a.id == widget.selectedId,
-      );
+      final index = _accounts.indexWhere((a) => a.id == widget.selectedId);
       _scroll.jumpTo(
         (index * 64.0).clamp(0.0, _scroll.position.maxScrollExtent),
       );
@@ -69,6 +71,10 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
   Future<void> _reorder(int oldIndex, int newIndex) async {
     if (_saving || _search.text.trim().isNotEmpty || widget.onReorder == null) {
       return;
+    }
+    if (_accounts[oldIndex].id == widget.defaultId) return;
+    if (_accounts.first.id == widget.defaultId && newIndex == 0) {
+      newIndex = 1;
     }
     if (oldIndex == newIndex) return;
     final previous = List<Debt>.of(_accounts);
@@ -201,7 +207,8 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
                                 leading: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (widget.onReorder != null)
+                                    if (widget.onReorder != null &&
+                                        debt.id != widget.defaultId)
                                       ReorderableDragStartListener(
                                         index: index,
                                         enabled: !_saving && query.isEmpty,

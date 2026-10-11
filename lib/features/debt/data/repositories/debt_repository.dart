@@ -33,10 +33,10 @@ class DebtRepository {
       where: 'key = ?',
       whereArgs: ['account_order'],
     );
-    if (prefs.isEmpty) return rows;
     try {
-      final ids = (jsonDecode(prefs.single['value'] as String) as List)
-          .cast<String>();
+      final ids = (jsonDecode(
+        prefs.isEmpty ? '[]' : prefs.single['value'] as String,
+      ) as List).cast<String>();
       final positions = {for (var i = 0; i < ids.length; i++) ids[i]: i};
       final original = {for (var i = 0; i < rows.length; i++) rows[i]['id']: i};
       rows.sort(
@@ -48,6 +48,9 @@ class DebtRepository {
     } on TypeError {
       // Retain creation order for an unsupported preference value.
     }
+    final defaultId = await _resolveDefault(txn);
+    final defaultIndex = rows.indexWhere((row) => row['id'] == defaultId);
+    if (defaultIndex > 0) rows.insert(0, rows.removeAt(defaultIndex));
     return rows;
   }
 
@@ -61,9 +64,14 @@ class DebtRepository {
           !current.containsAll(ids)) {
         throw const AppException('บัญชีมีการเปลี่ยนแปลง กรุณาเปิดรายการใหม่');
       }
+      final defaultId = await _resolveDefault(txn);
+      final orderedIds = [
+        ?defaultId,
+        ...ids.where((id) => id != defaultId),
+      ];
       await txn.insert('app_preferences', {
         'key': 'account_order',
-        'value': jsonEncode(ids),
+        'value': jsonEncode(orderedIds),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
@@ -114,6 +122,11 @@ class DebtRepository {
         throw const AppException('ไม่พบบัญชีนี้');
       }
       await _writeDefault(txn, id);
+      final rows = await _orderedRows(txn);
+      await txn.insert('app_preferences', {
+        'key': 'account_order',
+        'value': jsonEncode(rows.map((row) => row['id']).toList()),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
 

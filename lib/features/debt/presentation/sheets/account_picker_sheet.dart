@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../../domain/entities/debt.dart';
 import '../widgets/account_avatar.dart';
@@ -168,7 +169,10 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               subtitle: debt.id == widget.defaultId
-                                  ? const Text('บัญชีหลัก')
+                                  ? const Text(
+                                      'บัญชีหลัก',
+                                      style: AppTypography.caption,
+                                    )
                                   : null,
                               trailing: Icon(
                                 selected

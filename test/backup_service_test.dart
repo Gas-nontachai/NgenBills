@@ -69,7 +69,7 @@ void main() {
     final debts = DebtRepository(database);
     final second = await debts.create(name: 'สอง', amountMinor: 100);
     final third = await debts.create(name: 'สาม', amountMinor: 100);
-    final order = [third, 'original', second];
+    final order = ['original', third, second];
     await debts.reorder(order);
     final snapshot = service.decode(await service.export());
     expect(

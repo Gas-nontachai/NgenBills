@@ -26,6 +26,37 @@ class _NotificationSettingsScreenState
     extends ConsumerState<NotificationSettingsScreen> {
   bool _disabling = false;
   bool _applyingDisable = false;
+  bool _handlingPermission = false;
+
+  Future<void> _managePermission() async {
+    if (_handlingPermission) return;
+    setState(() => _handlingPermission = true);
+    try {
+      await _run(context, () async {
+        final controller = ref.read(reminderControllerProvider.notifier);
+        final allowed = await controller.manageSystemPermission();
+        if (!mounted || allowed) return;
+        final openSettings = await showAppSheet<bool>(
+          context,
+          AppConfirmSheet(
+            title: 'ยังไม่ได้รับสิทธิ์แจ้งเตือน',
+            destructive: false,
+            icon: Icons.notifications_none_outlined,
+            message:
+                'หากเครื่องไม่แสดงหน้าขอสิทธิ์อีก '
+                'คุณเปิดการแจ้งเตือนได้ในการตั้งค่าของเครื่อง',
+            confirmLabel: 'เปิดการตั้งค่าของเครื่อง',
+            onConfirm: () => Navigator.of(context).pop(true),
+            onCancel: () => Navigator.of(context).pop(false),
+          ),
+        );
+        if (!mounted || openSettings != true) return;
+        await controller.openSystemSettings();
+      });
+    } finally {
+      if (mounted) setState(() => _handlingPermission = false);
+    }
+  }
 
   Future<void> _run(
     BuildContext context,
@@ -85,7 +116,6 @@ class _NotificationSettingsScreenState
     final accountsState = ref.watch(accountsProvider);
     final accounts = accountsState.value ?? [];
     final writing = ref.watch(paymentActionProvider);
-    final controller = ref.read(reminderControllerProvider.notifier);
     return Scaffold(
       appBar: AppBar(title: const Text('การแจ้งเตือน')),
       body: SafeArea(
@@ -138,10 +168,12 @@ class _NotificationSettingsScreenState
                       : status.permissionAllowed!
                       ? 'อนุญาตการแจ้งเตือนแล้ว'
                       : 'ยังไม่อนุญาตการแจ้งเตือน',
-                  subtitle: 'จัดการสิทธิ์ในการตั้งค่าของเครื่อง',
-                  onTap: status.busy || writing
+                  subtitle: status.permissionAllowed == false
+                      ? 'แตะเพื่ออนุญาตการแจ้งเตือน'
+                      : 'จัดการสิทธิ์ในการตั้งค่าของเครื่อง',
+                  onTap: status.busy || writing || _handlingPermission
                       ? null
-                      : () => _run(context, controller.openSystemSettings),
+                      : _managePermission,
                 ),
                 const SettingsSectionTitle('แจ้งเตือนรายบัญชี'),
                 if (accountsState.isLoading)

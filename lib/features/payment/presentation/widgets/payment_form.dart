@@ -113,13 +113,11 @@ class PaymentForm extends StatelessWidget {
               label: 'หมายเหตุ',
               controller: note,
               maxLength: 500,
+              showCharacterCounter: true,
               maxLines: 2,
               hint: 'เช่น จ่ายผ่านแอปธนาคาร',
               enabled: !saving,
               onChanged: (_) => onChange(),
-              validator: (v) => (v?.length ?? 0) > 500
-                  ? 'หมายเหตุต้องไม่เกิน 500 ตัวอักษร'
-                  : null,
             ),
           ],
         ),

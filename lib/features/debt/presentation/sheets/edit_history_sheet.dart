@@ -221,12 +221,10 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
                 label: 'หมายเหตุ (ไม่บังคับ)',
                 controller: _note,
                 maxLength: 500,
+                showCharacterCounter: true,
                 maxLines: 2,
                 enabled: !saving,
                 onChanged: (_) => setState(() {}),
-                validator: (v) => (v?.length ?? 0) > 500
-                    ? 'หมายเหตุต้องไม่เกิน 500 ตัวอักษร'
-                    : null,
               ),
               const SizedBox(height: 20),
               AppButton(

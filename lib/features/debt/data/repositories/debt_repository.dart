@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:uuid/uuid.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -15,10 +17,63 @@ class DebtRepository {
   final AppDatabase database;
   Future<List<Debt>> list() async {
     final db = await database.instance;
-    return (await db.query(
+    return db.transaction(
+      (txn) async =>
+          (await _orderedRows(txn)).map(Debt.fromMap).toList(growable: false),
+    );
+  }
+
+  Future<List<Map<String, Object?>>> _orderedRows(DatabaseExecutor txn) async {
+    final rows = (await txn.query(
       'debts',
       orderBy: 'created_at ASC, id ASC',
-    )).map(Debt.fromMap).toList(growable: false);
+    )).toList();
+    final prefs = await txn.query(
+      'app_preferences',
+      where: 'key = ?',
+      whereArgs: ['account_order'],
+    );
+    try {
+      final ids = (jsonDecode(
+        prefs.isEmpty ? '[]' : prefs.single['value'] as String,
+      ) as List).cast<String>();
+      final positions = {for (var i = 0; i < ids.length; i++) ids[i]: i};
+      final original = {for (var i = 0; i < rows.length; i++) rows[i]['id']: i};
+      rows.sort(
+        (a, b) => (positions[a['id']] ?? ids.length + original[a['id']]!)
+            .compareTo(positions[b['id']] ?? ids.length + original[b['id']]!),
+      );
+    } on FormatException {
+      // Retain creation order if an imported preference is malformed.
+    } on TypeError {
+      // Retain creation order for an unsupported preference value.
+    }
+    final defaultId = await _resolveDefault(txn);
+    final defaultIndex = rows.indexWhere((row) => row['id'] == defaultId);
+    if (defaultIndex > 0) rows.insert(0, rows.removeAt(defaultIndex));
+    return rows;
+  }
+
+  Future<void> reorder(List<String> ids) async {
+    final db = await database.instance;
+    await db.transaction((txn) async {
+      final rows = await txn.query('debts', columns: ['id']);
+      final current = rows.map((row) => row['id'] as String).toSet();
+      if (ids.length != current.length ||
+          ids.toSet().length != ids.length ||
+          !current.containsAll(ids)) {
+        throw const AppException('บัญชีมีการเปลี่ยนแปลง กรุณาเปิดรายการใหม่');
+      }
+      final defaultId = await _resolveDefault(txn);
+      final orderedIds = [
+        ?defaultId,
+        ...ids.where((id) => id != defaultId),
+      ];
+      await txn.insert('app_preferences', {
+        'key': 'account_order',
+        'value': jsonEncode(orderedIds),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    });
   }
 
   Future<String?> defaultId() async {
@@ -67,13 +122,18 @@ class DebtRepository {
         throw const AppException('ไม่พบบัญชีนี้');
       }
       await _writeDefault(txn, id);
+      final rows = await _orderedRows(txn);
+      await txn.insert('app_preferences', {
+        'key': 'account_order',
+        'value': jsonEncode(rows.map((row) => row['id']).toList()),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
   }
 
   Future<List<DebtSummary>> loadAll() async {
     final db = await database.instance;
     return db.transaction((txn) async {
-      final debts = await txn.query('debts', orderBy: 'created_at ASC, id ASC');
+      final debts = await _orderedRows(txn);
       return Future.wait(debts.map((row) => _summary(txn, Debt.fromMap(row))));
     });
   }

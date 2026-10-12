@@ -1,10 +1,13 @@
+import '../../../../core/widgets/sheets/history_detail_content.dart';
+import '../../domain/services/debt_summary.dart';
+import 'edit_history_sheet.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/formatters/date_formatter.dart';
-import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../../../../core/widgets/sheets/app_confirm_sheet.dart';
@@ -15,11 +18,16 @@ class BorrowingDetailSheet extends StatelessWidget {
   const BorrowingDetailSheet({super.key, required this.borrowing});
   final Borrowing borrowing;
   static Future<void> open(BuildContext context, Borrowing borrowing) async {
-    final remove = await showAppSheet<bool>(
+    final action = await showAppSheet<String>(
       context,
       BorrowingDetailSheet(borrowing: borrowing),
     );
-    if (remove == true && context.mounted) {
+    if (action == 'edit' && context.mounted) {
+      await EditHistorySheet.open(
+        context,
+        DebtHistoryEntry(borrowing: borrowing),
+      );
+    } else if (action == 'delete' && context.mounted) {
       await showAppSheet<void>(
         context,
         DeleteBorrowingSheet(borrowing: borrowing),
@@ -32,41 +40,17 @@ class BorrowingDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) => AppBottomSheet(
     title: 'รายละเอียดการกู้เพิ่ม',
     onClose: () => Navigator.pop(context),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Center(
-          child: CircleAvatar(
-            radius: 28,
-            backgroundColor: Color(0xFFD9EEF5),
-            child: Icon(Icons.add, color: Colors.blue),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          Money.format(borrowing.amountMinor, decimals: true),
-          textAlign: TextAlign.center,
-          style: AppTypography.display,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          AppDates.format(borrowing.date),
-          textAlign: TextAlign.center,
-          style: AppTypography.small,
-        ),
-        if ((borrowing.note ?? '').isNotEmpty) ...[
-          const SizedBox(height: 24),
-          const Text('หมายเหตุ', style: AppTypography.small),
-          const SizedBox(height: 8),
-          Text(borrowing.note!),
-        ],
-        const SizedBox(height: 32),
-        AppButton(
-          label: 'ลบรายการกู้เพิ่ม',
-          variant: AppButtonVariant.destructive,
-          onPressed: () => Navigator.pop(context, true),
-        ),
-      ],
+    child: HistoryDetailContent(
+      amountMinor: borrowing.amountMinor,
+      date: borrowing.date,
+      note: borrowing.note,
+      isEdited: borrowing.isEdited,
+      icon: Icons.add_rounded,
+      iconColor: const Color(0xFF2673C7),
+      iconBackground: const Color(0xFFD9EEF5),
+      deleteLabel: 'ลบรายการกู้เพิ่ม',
+      onEdit: () => Navigator.pop(context, 'edit'),
+      onDelete: () => Navigator.pop(context, 'delete'),
     ),
   );
 }

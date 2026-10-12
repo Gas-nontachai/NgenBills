@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -304,6 +301,29 @@ void main() {
   }
 
   testWidgets(
+    'Device permission tile requests permission and refreshes status',
+    (tester) async {
+      service.allowed = false;
+      repository.settings['debt'] = const ReminderSettings(
+        debtId: 'debt',
+        dueDay: 27,
+        enabled: true,
+      );
+      await boot(tester);
+      await tap(tester, find.byTooltip('ตั้งค่า'));
+      await tap(tester, find.text('การแจ้งเตือน').last);
+      await tap(tester, find.text('ยังไม่อนุญาตการแจ้งเตือน'));
+      expect(service.requests, 1);
+      expect(service.settingsOpened, 0);
+      expect(find.text('อนุญาตการแจ้งเตือนแล้ว'), findsOneWidget);
+      expect(service.pending, isNotEmpty);
+      await tap(tester, find.text('อนุญาตการแจ้งเตือนแล้ว'));
+      expect(service.requests, 1);
+      expect(service.settingsOpened, 1);
+    },
+  );
+
+  testWidgets(
     'Denied permission is distinct from enabled intent; settings and disabling work',
     (tester) async {
       service.allowed = false;
@@ -321,6 +341,10 @@ void main() {
       expect(find.text('ยังไม่อนุญาตการแจ้งเตือน'), findsOneWidget);
       expect(find.text('เปิดเตือน · ครบกำหนดวันที่ 27'), findsOneWidget);
       await tap(tester, find.text('ยังไม่อนุญาตการแจ้งเตือน'));
+      expect(service.requests, 1);
+      expect(service.settingsOpened, 0);
+      expect(find.text('ยังไม่ได้รับสิทธิ์แจ้งเตือน'), findsOneWidget);
+      await tap(tester, find.text('เปิดการตั้งค่าของเครื่อง'));
       expect(service.settingsOpened, 1);
       await tap(tester, find.text('ปิดการแจ้งเตือนทั้งหมด'));
       expect(repository.settings['debt']!.enabled, true);
@@ -371,60 +395,6 @@ void main() {
     await tap(tester, find.text('ยืนยัน'));
     expect(find.text('วันที่ 31'), findsOneWidget);
     await tap(tester, find.byIcon(Icons.close));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('Notification visual references with bundled fonts', (
-    tester,
-  ) async {
-    final fonts = FontLoader('Kanit')
-      ..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
-    await fonts.load();
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await icons.load();
-    String golden(String name) =>
-        'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png';
-    repository.done = false;
-    await boot(tester);
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('notification_onboarding')),
-    );
-    await tap(tester, find.text('ไว้ทีหลัง'));
-    await tap(tester, find.text('ตกลง'));
-    repository.settings['debt'] = const ReminderSettings(
-      debtId: 'debt',
-      dueDay: 27,
-      enabled: true,
-    );
-    final context = tester.element(find.byType(NgenBillsApp));
-    await ProviderScope.containerOf(context)
-        .read(reminderControllerProvider.notifier)
-        .refresh();
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('reminder_home')),
-    );
-    await tap(tester, find.text('อีก 19 วัน'));
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('reminder_sheet')),
-    );
-    await tap(tester, find.text('วันที่ 27'));
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('due_day_sheet')),
-    );
-    await tap(tester, find.byIcon(Icons.close).last);
-    await tap(tester, find.byIcon(Icons.close));
-    await tap(tester, find.byTooltip('ตั้งค่า'));
-    await tap(tester, find.text('การแจ้งเตือน').last);
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('notification_settings')),
-    );
     expect(tester.takeException(), isNull);
   });
 

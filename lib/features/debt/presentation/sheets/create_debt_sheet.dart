@@ -144,12 +144,10 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
               label: 'หมายเหตุ (ไม่บังคับ)',
               controller: _note,
               maxLength: 500,
+              showCharacterCounter: true,
               maxLines: 3,
               hint: 'เช่น ธนาคาร เลขบัญชี หรือรายละเอียดเพิ่มเติม',
               enabled: !saving && !busy,
-              validator: (v) => (v?.length ?? 0) > 500
-                  ? 'หมายเหตุต้องไม่เกิน 500 ตัวอักษร'
-                  : null,
             ),
             const SizedBox(height: 40),
             AppButton(

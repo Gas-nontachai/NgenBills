@@ -1,3 +1,5 @@
+import '../../../../app/theme/app_colors.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_typography.dart';
@@ -33,7 +35,26 @@ class BorrowingListItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('กู้เพิ่ม', style: AppTypography.body),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text('กู้เพิ่ม', style: AppTypography.body),
+                        ),
+                        if (borrowing.isEdited) ...[
+                          const SizedBox(width: 6),
+                          const Tooltip(
+                            message: 'แก้ไขแล้ว',
+                            excludeFromSemantics: true,
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.secondary,
+                              semanticLabel: 'แก้ไขแล้ว',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     Text(
                       AppDates.format(borrowing.date),
                       style: AppTypography.caption,

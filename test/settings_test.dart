@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:ngenbills/app/app.dart';
 import 'package:ngenbills/core/database/app_database.dart';
@@ -83,6 +84,13 @@ void main() {
   late _Files files;
   late _Backup backup;
   setUp(() {
+    PackageInfo.setMockInitialValues(
+      appName: 'NgenBills',
+      packageName: 'com.gasnontachai.ngenbills',
+      version: '2.3.4',
+      buildNumber: '42',
+      buildSignature: '',
+    );
     database = AppDatabase(
       factory: databaseFactoryFfi,
       databasePath: inMemoryDatabasePath,
@@ -168,6 +176,12 @@ void main() {
     tester,
   ) async {
     await boot(tester);
+    await tester.scrollUntilVisible(
+      find.text('เวอร์ชัน 2.3.4 (build 42)'),
+      150,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('เวอร์ชัน 2.3.4 (build 42)'), findsOneWidget);
     for (final label in ['ข้อกำหนดการใช้งาน', 'นโยบายความเป็นส่วนตัว']) {
       await tap(tester, label);
       expect(find.textContaining('Nonthachai Phosri'), findsWidgets);
@@ -180,5 +194,6 @@ void main() {
     }
     await tap(tester, 'ใบอนุญาตซอฟต์แวร์');
     expect(find.byType(LicensePage), findsOneWidget);
+    expect(find.text('2.3.4 (build 42)'), findsOneWidget);
   });
 }

@@ -36,6 +36,39 @@ void main() {
   });
   tearDown(() => db.close());
 
+  test('Account order persists and handles new and deleted accounts', () async {
+    final second = await debts.create(name: 'สอง', amountMinor: 100);
+    final third = await debts.create(name: 'สาม', amountMinor: 100);
+    await debts.reorder([third, id, second]);
+    expect((await debts.list()).map((a) => a.id), [id, third, second]);
+    expect((await debts.loadAll()).map((a) => a.debt.id), [id, third, second]);
+    expect(await debts.defaultId(), id);
+    await expectLater(
+      debts.reorder([id, id, second]),
+      throwsA(isA<AppException>()),
+    );
+    expect((await debts.list()).map((a) => a.id), [id, third, second]);
+    final fourth = await debts.create(name: 'สี่', amountMinor: 100);
+    expect((await debts.list()).map((a) => a.id), [id, third, second, fourth]);
+    await debts.setDefault(second);
+    expect((await debts.list()).map((a) => a.id), [second, id, third, fourth]);
+    await debts.delete(second);
+    expect(await debts.defaultId(), id);
+    expect((await debts.list()).map((a) => a.id), [id, third, fourth]);
+  });
+
+  test('Legacy account order keeps the main account first', () async {
+    final second = await debts.create(name: 'สอง', amountMinor: 100);
+    final third = await debts.create(name: 'สาม', amountMinor: 100);
+    final sql = await db.instance;
+    await sql.insert('app_preferences', {
+      'key': 'account_order',
+      'value': '["$third","$second","$id"]',
+    });
+    expect((await debts.list()).map((a) => a.id), [id, third, second]);
+    expect((await debts.loadAll()).map((a) => a.debt.id), [id, third, second]);
+  });
+
   test(
     'Borrowing preserves principal and uses total debt for payment checks',
     () async {
@@ -269,7 +302,7 @@ void main() {
     },
   );
 
-  test('Version 1 account and history persist across reopen', () async {
+  test('Current schema account and history persist across reopen', () async {
     final temp = await Directory.systemTemp.createTemp('ngenbills-v1-');
     addTearDown(() => temp.delete(recursive: true));
     final persistent = AppDatabase(
@@ -305,8 +338,12 @@ void main() {
       date: DateTime(2026, 1, 3),
       note: 'Borrowing note',
     );
+    final otherId = await repo.create(name: 'Second', amountMinor: 100);
+    await repo.setDefault(otherId);
+    await repo.reorder([otherId, debtId]);
     await persistent.close();
-    summary = (await repo.load())!;
+    expect((await repo.list()).map((a) => a.id), [otherId, debtId]);
+    summary = (await repo.load(debtId))!;
     expect(summary.debt.name, 'Renamed');
     expect(summary.debt.iconKey, 'travel');
     expect(summary.debt.colorKey, 'purple');

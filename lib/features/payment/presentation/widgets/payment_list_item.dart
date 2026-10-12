@@ -5,6 +5,8 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/formatters/currency_formatter.dart';
 import '../../../../core/formatters/date_formatter.dart';
 import '../../../../core/widgets/cards/app_card.dart';
+import '../../../debt/domain/services/debt_summary.dart';
+import '../../../debt/presentation/sheets/edit_history_sheet.dart';
 import '../../domain/entities/payment.dart';
 import 'payment_detail_sheet.dart';
 import 'delete_payment_sheet.dart';
@@ -38,7 +40,26 @@ class PaymentListItem extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('ชำระหนี้', style: AppTypography.body),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text('ชำระหนี้', style: AppTypography.body),
+                        ),
+                        if (payment.isEdited) ...[
+                          const SizedBox(width: 6),
+                          const Tooltip(
+                            message: 'แก้ไขแล้ว',
+                            excludeFromSemantics: true,
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.secondary,
+                              semanticLabel: 'แก้ไขแล้ว',
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     Text(
                       AppDates.format(payment.date),
                       style: AppTypography.caption,
@@ -69,9 +90,19 @@ class PaymentListItem extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
-                onSelected: (value) => value == 'delete'
-                    ? DeletePaymentSheet.open(context, payment)
-                    : PaymentDetailSheet.open(context, payment),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'details':
+                      PaymentDetailSheet.open(context, payment);
+                    case 'edit':
+                      EditHistorySheet.open(
+                        context,
+                        DebtHistoryEntry(payment: payment),
+                      );
+                    case 'delete':
+                      DeletePaymentSheet.open(context, payment);
+                  }
+                },
                 itemBuilder: (_) => [
                   const PopupMenuItem(
                     value: 'details',
@@ -80,6 +111,16 @@ class PaymentListItem extends StatelessWidget {
                         Icon(Icons.receipt_long_outlined),
                         SizedBox(width: 12),
                         Text('ดูรายละเอียด'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined),
+                        SizedBox(width: 12),
+                        Text('แก้ไขรายการ'),
                       ],
                     ),
                   ),

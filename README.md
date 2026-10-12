@@ -85,6 +85,7 @@ flutter test integration_test/notification_schedule_test.dart -d <device-id>
 
 - `ci.yml`: เมื่อ push หรือเปิด PR เข้า `main`/`dev` จะตรวจ release tooling, `flutter analyze` และ `flutter test`
 - `android-release.yml`: เมื่อ push tag `vMAJOR.MINOR.PATCH` ที่อยู่บน `main` จะทดสอบ สร้าง signed release APK ตรวจลายเซ็น และเผยแพร่ GitHub Release พร้อม SHA256 checksum
+- Release workflow สร้าง screenshot 7 รูปจากหน้าสำคัญและ dialog: หน้าหลัก (`home.png`), บันทึกการจ่าย (`payment.png`), รายละเอียดการจ่าย (`payment-detail.png`), ปรับแต่งบัญชี (`account.png`), ตั้งค่าแจ้งเตือน (`notifications.png`), Settings (`settings.png`) และสำรองข้อมูล (`backup.png`) ด้วยข้อมูลตัวอย่าง แนบ PNG และแสดงภาพใน release notes พร้อมเก็บเป็น Actions artifact ภาพเป็น Flutter UI ไม่รวม status bar ของระบบ ไม่เก็บ golden baseline และไม่เปรียบเทียบภาพ
 - เวอร์ชัน release มาจาก tag; build number มาจาก workflow run number + repository variable `ANDROID_BUILD_NUMBER_OFFSET` (ค่าเริ่มต้น `1`)
 
 Signing ใช้ release key ของ NgenBills โดยเฉพาะ ไม่มี fallback ไปใช้ debug key หากตั้งค่าไม่ครบ release build จะหยุด
@@ -112,6 +113,12 @@ git push origin v1.0.0
 ```
 
 เปลี่ยน tag ตามเวอร์ชันใหม่ที่จะเผยแพร่ ไม่ใช้ tag เดิมซ้ำ Pipeline นี้รองรับ Android; iOS/TestFlight signing ยังไม่ได้ตั้งค่า
+
+สร้างภาพ preview ในเครื่อง (ไฟล์อยู่ใน `build/release-screenshots/` ซึ่งไม่ commit):
+
+```sh
+flutter test tool/release_screenshots_test.dart
+```
 
 ## จัดการบัญชีและกู้เพิ่ม
 

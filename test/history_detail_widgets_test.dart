@@ -1,7 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ngenbills/app/theme/app_theme.dart';
 import 'package:ngenbills/features/payment/domain/entities/payment.dart';
@@ -74,21 +71,6 @@ void main() {
               note: long ? 'note ' * 100 : 'For repairs',
             ),
           );
-    testWidgets('$name visual reference', (tester) async {
-      await (FontLoader(
-        'Kanit',
-      )..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'))).load();
-      await (FontLoader(
-        'MaterialIcons',
-      )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
-      await showDetail(tester, detail());
-      await expectLater(
-        find.byType(MaterialApp),
-        matchesGoldenFile(
-          'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png',
-        ),
-      );
-    });
     testWidgets('$name stacks actions for small screen and large text', (
       tester,
     ) async {

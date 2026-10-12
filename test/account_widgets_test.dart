@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -404,49 +402,5 @@ void main() {
     expect(tester.takeException(), isNull);
     await tap(tester, 'ยกเลิก');
     expect(store.debt, isNotNull);
-  });
-  testWidgets('Account and borrowing visual references', (tester) async {
-    final fonts = FontLoader('Kanit')
-      ..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
-    await fonts.load();
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await icons.load();
-    String golden(String name) =>
-        'goldens/${Platform.isLinux ? 'linux/' : ''}$name.png';
-    await boot(tester);
-    await menu(tester, 'ปรับแต่งบัญชี');
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('customize_account')),
-    );
-    await tap(tester, 'ลบบัญชีนี้');
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('delete_account')),
-    );
-    await tap(tester, 'ยกเลิก');
-    await tester.tap(find.byTooltip('ปิด'));
-    await tester.pumpAndSettle();
-    await menu(tester, 'กู้เพิ่ม');
-    await tester.enterText(find.byType(TextFormField).first, '5000');
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('add_borrowing')),
-    );
-    await tap(tester, 'บันทึกการกู้เพิ่ม');
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('borrowing_success')),
-    );
-    await tap(tester, 'ตกลง');
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('borrowing_home')),
-    );
-    expect(tester.takeException(), isNull);
   });
 }

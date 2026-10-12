@@ -10,7 +10,8 @@ import '../features/reminders/presentation/reminder_providers.dart';
 import 'theme/app_theme.dart';
 
 class NgenBillsApp extends ConsumerStatefulWidget {
-  const NgenBillsApp({super.key});
+  const NgenBillsApp({super.key, this.theme});
+  final ThemeData? theme;
   @override
   ConsumerState<NgenBillsApp> createState() => _NgenBillsAppState();
 }
@@ -54,7 +55,7 @@ class _NgenBillsAppState extends ConsumerState<NgenBillsApp>
     return MaterialApp.router(
       title: 'เงินบิล - NgenBills',
       debugShowCheckedModeBanner: false,
-      theme: appTheme(),
+      theme: widget.theme ?? appTheme(),
       locale: const Locale('th'),
       supportedLocales: const [Locale('th')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,

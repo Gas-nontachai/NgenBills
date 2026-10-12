@@ -65,6 +65,19 @@ void main() {
   Uint8List encode(Map<String, dynamic> value) =>
       Uint8List.fromList(utf8.encode(jsonEncode(value)));
 
+  test('Edited markers survive schema 1 backup and restore', () async {
+    final db = await database.instance;
+    for (final table in ['payments', 'borrowings']) {
+      await db.update(table, {'is_edited': 1});
+    }
+    final current = await document();
+    expect(current['schemaVersion'], 1);
+    await service.restore(service.decode(encode(current)));
+    for (final table in ['payments', 'borrowings']) {
+      expect((await db.query(table)).single['is_edited'], 1);
+    }
+  });
+
   test('Backup restores custom account order into a fresh database', () async {
     final debts = DebtRepository(database);
     final second = await debts.create(name: 'สอง', amountMinor: 100);
@@ -155,6 +168,10 @@ void main() {
   });
 
   final invalid = <String, void Function(Map<String, dynamic>)>{
+    'invalid edit marker': (d) => d['data']['payments'][0]['is_edited'] = 2,
+    'wrong marker type': (d) => d['data']['borrowings'][0]['is_edited'] = true,
+    'missing marker': (d) =>
+        (d['data']['payments'][0] as Map).remove('is_edited'),
     'unsupported file version': (d) => d['formatVersion'] = 2,
     'unsupported schema': (d) => d['schemaVersion'] = 2,
     'wrong application': (d) => d['app'] = 'other',

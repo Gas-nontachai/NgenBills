@@ -26,7 +26,7 @@ flutter test integration_test/app_flow_test.dart -d <android-device-id>
 
 Integration test ใช้ฐานข้อมูลทดสอบแยกไฟล์และลบหลังจบ ไม่แก้ข้อมูลจริงของแอป ทดสอบสร้างหนี้ จ่ายบางส่วน เปิด SQLite และสร้าง app state ใหม่ ลบรายการ จ่ายครบ ปรับแต่งบัญชี กู้เพิ่ม เปิดฐานข้อมูลใหม่ ลบกู้เพิ่ม และลบบัญชีแล้วสร้างใหม่โดยไม่แสดง onboarding ซ้ำ
 
-Widget tests มีภาพอ้างอิงใน `test/goldens/` สำหรับหน้าจอสำคัญ หากตั้งใจปรับดีไซน์ให้ใช้ `flutter test --update-goldens` แล้วตรวจภาพใหม่ก่อนยอมรับ ภาพ baseline ของ macOS อยู่ใน `test/goldens/` และของ Linux runner อยู่ใน `test/goldens/linux/` เพื่อเปรียบเทียบกับ renderer ของระบบเดียวกัน
+Widget tests ตรวจการทำงานของหน้าจอและการรองรับจอเล็กกับตัวอักษรใหญ่ ก่อน release ให้เปิดแอปตรวจหน้าตาบน Android/iOS ด้วย
 
 ## โครงสร้างและข้อมูล
 
@@ -39,9 +39,11 @@ Widget tests มีภาพอ้างอิงใน `test/goldens/` สำ�
 
 SQLite schema version 1 เริ่มนับใหม่ก่อน release รวมตารางหนี้ รายการจ่าย กู้เพิ่ม การแจ้งเตือน และ app preferences ใน schema เริ่มต้นเดียว บัญชีใหม่ใช้ไอคอนกระเป๋า/สีเขียวเป็นค่าเริ่มต้น เปิด foreign keys และมี index ตามหนี้/วันที่ รองรับหลายบัญชีโดยแยกประวัติด้วย debt_id เก็บบัญชีหลักใน app_preferences และเติมค่าให้ข้อมูลเดิมโดยไม่ล้างฐานข้อมูล Timestamp เป็น UTC และวันที่จ่าย/กู้เพิ่มเป็น local date-only (`YYYY-MM-DD`) หน้าจอแสดงวันที่ภาษาไทย/พ.ศ.
 
-ไม่มี migration จาก build ทดลองก่อนหน้า หากเคยติดตั้ง build เดิม ให้ล้างข้อมูลแอปหรือถอนการติดตั้งแล้วติดตั้งใหม่เพื่อสร้างฐานข้อมูล version 1 ชุดใหม่ (ข้อมูลทดลองบนเครื่องนั้นจะถูกลบ) แอปไม่ล้างฐานข้อมูลเดิมอัตโนมัติ เมื่อเริ่ม release ที่มีผู้ใช้จริง ให้เพิ่ม migration สำหรับการเปลี่ยน schema ครั้งต่อไป
+ก่อน release ยังไม่มี migration จาก build ทดลองก่อนหน้า หากเคยติดตั้ง build เดิม ให้ล้างข้อมูลแอปหรือถอนการติดตั้งแล้วติดตั้งใหม่เพื่อสร้างฐานข้อมูล version 1 ชุดใหม่ (ข้อมูลทดลองบนเครื่องนั้นจะถูกลบ) แอปไม่ล้างฐานข้อมูลเดิมอัตโนมัติ เมื่อเริ่ม release ที่มีผู้ใช้จริง ให้เพิ่ม migration สำหรับการเปลี่ยน schema ครั้งต่อไป
 
-ยังไม่รองรับการแก้ยอดตั้งต้น การแก้ไขรายการจ่าย/กู้เพิ่ม หรือ cloud sync ในรุ่นนี้
+รองรับการแก้ยอด วันที่ และหมายเหตุของรายการจ่าย/กู้เพิ่มจากปุ่ม “แก้ไขรายการ” ในรายละเอียด รายการที่แก้สำเร็จจะแสดงไอคอนดินสอข้างชื่อประเภทในประวัติ และข้อความ “แก้ไขแล้ว” ในรายละเอียด โดยไม่แสดงวันเวลาแก้ไขหรือเก็บค่าก่อนแก้ ยังไม่รองรับการแก้ยอดตั้งต้นหรือ cloud sync ในรุ่นนี้
+
+ฐานข้อมูลยังใช้ version 1 โดยรวมสถานะแก้ไขรายการไว้ใน schema เริ่มต้น ไฟล์สำรองใช้ formatVersion 1 / schemaVersion 1 และเก็บสถานะ “แก้ไขแล้ว” ยังไม่รองรับไฟล์สำรองจาก build ทดลองที่ไม่มีสถานะนี้
 
 ## Settings และ Backup/Restore
 
@@ -55,7 +57,7 @@ SQLite schema version 1 เริ่มนับใหม่ก่อน release
 
 ข้อกำหนดการใช้งานและนโยบายความเป็นส่วนตัวภาษาไทยอ่านแบบออฟไลน์ได้ใน Settings ฉบับ 1.0 มีผล 9 ตุลาคม 2569 ผู้ให้บริการ Nonthachai Phosri ติดต่อ nontachimuraproduction@gmail.com ตัวแอพสงวนลิขสิทธิ์ตาม LICENSE ส่วนหน้า Licenses ใช้ Flutter LicenseRegistry สำหรับ dependencies และลงทะเบียน copyright/SIL OFL ของ Kanit เพิ่มจาก assets/fonts/OFL.txt หากส่งขึ้นสโตร์ต้องเตรียม URL นโยบายสาธารณะและข้อมูลความเป็นส่วนตัวของสโตร์ให้ตรงกับการทำงานจริงด้วย
 
-แพลตฟอร์มเป้าหมายคือ Android และ iOS โดยเก็บ runner เฉพาะ `android/` และ `ios/` ไม่รองรับ Web หรือ desktop ภาพอ้างอิง Linux ใน `test/goldens/linux/` ยังใช้สำหรับตรวจ UI บน CI และไม่ได้หมายถึงการรองรับแอป desktop
+แพลตฟอร์มเป้าหมายคือ Android และ iOS โดยเก็บ runner เฉพาะ `android/` และ `ios/` ไม่รองรับ Web หรือ desktop
 
 Kanit: SIL Open Font License — ดู `assets/fonts/OFL.txt`
 
@@ -77,7 +79,7 @@ Android ใช้ inexact alarms ไม่ขอสิทธิ์ exact alarm �
 flutter test integration_test/notification_schedule_test.dart -d <device-id>
 ```
 
-ก่อน release ให้ตรวจบนเครื่องจริงทั้ง Android/iOS: อนุญาต/ปฏิเสธ permission, แอปปิดตามปกติ, reboot Android, เปลี่ยนเขตเวลา, และแตะ notification ขณะแอปเปิดหรือปิด Tests อัตโนมัติครอบคลุมการสร้างฐานข้อมูลและเปิดใหม่, calendar/DST, ยอดเงิน, cancellation/retry, UI และ golden บน macOS/Linux
+ก่อน release ให้ตรวจบนเครื่องจริงทั้ง Android/iOS: อนุญาต/ปฏิเสธ permission, แอปปิดตามปกติ, reboot Android, เปลี่ยนเขตเวลา, และแตะ notification ขณะแอปเปิดหรือปิด Tests อัตโนมัติครอบคลุมการสร้างฐานข้อมูลและเปิดใหม่, calendar/DST, ยอดเงิน, cancellation/retry, การทำงานของ UI และ layout บนจอเล็กกับตัวอักษรใหญ่
 
 ## Android signing และ GitHub CI/CD
 

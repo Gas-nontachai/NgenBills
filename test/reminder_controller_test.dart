@@ -43,6 +43,70 @@ void main() {
       ReminderSettings(debtId: debtId, dueDay: day, enabled: true, hour: hour);
 
   test(
+    'Editing payments and borrowings reconciles payoff and reopening',
+    () async {
+      await controller.save(settings());
+      final payments = container.read(paymentRepositoryProvider);
+      final borrowings = container.read(borrowingRepositoryProvider);
+      final date = DateTime(2020, 1, 1);
+      await payments.add(debtId: debtId, amountMinor: 500000, date: date);
+      final paymentId = (await container.read(debtRepositoryProvider).load())!
+          .payments
+          .single
+          .id;
+      await container
+          .read(paymentActionProvider.notifier)
+          .run(
+            () => payments.update(
+              id: paymentId,
+              amountMinor: 1000000,
+              date: date,
+            ),
+          );
+      await controller.refresh();
+      expect(service.pending, isEmpty);
+      await container
+          .read(paymentActionProvider.notifier)
+          .run(
+            () =>
+                payments.update(id: paymentId, amountMinor: 900000, date: date),
+          );
+      await controller.refresh();
+      expect(service.pending, isNotEmpty);
+      await borrowings.add(debtId: debtId, amountMinor: 100000, date: date);
+      await payments.update(id: paymentId, amountMinor: 1100000, date: date);
+      await controller.refresh();
+      expect(service.pending, isEmpty);
+      final borrowingId = (await container.read(debtRepositoryProvider).load())!
+          .borrowings
+          .single
+          .id;
+      await container
+          .read(paymentActionProvider.notifier)
+          .run(
+            () => borrowings.update(
+              id: borrowingId,
+              amountMinor: 200000,
+              date: date,
+            ),
+          );
+      await controller.refresh();
+      expect(service.pending, isNotEmpty);
+      await container
+          .read(paymentActionProvider.notifier)
+          .run(
+            () => borrowings.update(
+              id: borrowingId,
+              amountMinor: 100000,
+              date: date,
+            ),
+          );
+      await controller.refresh();
+      expect(service.pending, isEmpty);
+    },
+  );
+
+  test(
     'No automatic permission prompt; onboarding skip persists separately',
     () async {
       await controller.refresh();

@@ -15,6 +15,7 @@ import '../../backup/presentation/backup_sheets.dart';
 import '../../debt/presentation/providers/debt_providers.dart';
 import '../../reminders/presentation/reminder_providers.dart';
 import '../../reminders/presentation/reminder_widgets.dart';
+import 'app_version_provider.dart';
 import 'settings_widgets.dart';
 
 final backupServiceProvider = Provider(
@@ -99,6 +100,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final appVersion = ref.watch(appVersionProvider);
     final writing = ref.watch(paymentActionProvider);
     final busy = _operation != null || writing;
     final reminders = ref.watch(reminderControllerProvider);
@@ -141,6 +143,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   fontSize: 13,
                                 ),
                               ),
+                              const SizedBox(height: 4),
                             ],
                           ),
                         ),
@@ -245,6 +248,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               : () => showLicensePage(
                                   context: context,
                                   applicationName: 'เงินบิล — NgenBills',
+                                  applicationVersion: appVersion.asData?.value,
                                   applicationIcon: const AppLogo(size: 64),
                                   applicationLegalese: '© 2026 Nonthachai Phosri\nสงวนลิขสิทธิ์ตัวแอพ',
                                 ),
@@ -257,6 +261,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     '© 2026 Nonthachai Phosri\nค่อย ๆ จ่าย ค่อย ๆ ไป 🌱',
                     textAlign: TextAlign.center,
                     style: AppTypography.caption,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    appVersion.when(
+                      data: (version) => 'เวอร์ชัน $version',
+                      loading: () => 'กำลังอ่านเวอร์ชัน…',
+                      error: (_, _) => 'ไม่สามารถอ่านเวอร์ชันได้',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: AppTypography.caption.copyWith(
+                      fontSize: 10,
+                      color: AppColors.secondary.withValues(alpha: .8),
+                    ),
                   ),
                 ],
               ),

@@ -105,6 +105,21 @@ void main() {
         await tester.tap(find.byType(PaymentListItem));
         await tester.pumpAndSettle();
         expect(find.text('฿3,000.50'), findsWidgets);
+        await tap('แก้ไขรายการ');
+        await tester.enterText(
+          find.byType(TextFormField).last,
+          'แก้หมายเหตุการจ่าย',
+        );
+        await tester.pumpAndSettle();
+        await tap('บันทึกการแก้ไข');
+        expect(
+          (await DebtRepository(database).load())!.payments.single.isEdited,
+          true,
+        );
+        expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+        await tester.ensureVisible(find.byType(PaymentListItem));
+        await tester.tap(find.byType(PaymentListItem));
+        await tester.pumpAndSettle();
         await tap('ลบรายการจ่าย');
         expect(find.byType(PaymentListItem), findsOneWidget);
         await tap('ลบรายการจ่าย');
@@ -155,6 +170,16 @@ void main() {
         await tap('บันทึกการกู้เพิ่ม');
         expect(find.text('บันทึกการกู้เพิ่มแล้ว'), findsOneWidget);
         await tap('ตกลง');
+        await tester.ensureVisible(find.byType(BorrowingListItem));
+        await tester.tap(find.byType(BorrowingListItem));
+        await tester.pumpAndSettle();
+        await tap('แก้ไขรายการ');
+        await tester.enterText(
+          find.byType(TextFormField).last,
+          'แก้หมายเหตุการกู้',
+        );
+        await tester.pumpAndSettle();
+        await tap('บันทึกการแก้ไข');
         await tester.pumpWidget(const SizedBox());
         await database.close();
         database = AppDatabase(databasePath: databasePath);
@@ -165,6 +190,8 @@ void main() {
         expect(summary.debt.colorKey, 'pink');
         expect(summary.remaining, 1500050);
         expect(summary.debt.initialAmountMinor, 1000050);
+        expect(summary.borrowings.single.isEdited, true);
+        expect(summary.borrowings.single.note, 'แก้หมายเหตุการกู้');
         expect(find.byType(BorrowingListItem), findsOneWidget);
         await tester.ensureVisible(find.byType(BorrowingListItem));
         await tester.tap(find.byType(BorrowingListItem));

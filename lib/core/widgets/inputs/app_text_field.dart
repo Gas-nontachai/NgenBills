@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_typography.dart';
 
 class AppTextField extends StatelessWidget {
@@ -10,6 +12,7 @@ class AppTextField extends StatelessWidget {
     this.hint,
     this.validator,
     this.maxLength,
+    this.showCharacterCounter = false,
     this.maxLines = 1,
     this.enabled = true,
     this.onChanged,
@@ -19,6 +22,7 @@ class AppTextField extends StatelessWidget {
   final String? hint;
   final FormFieldValidator<String>? validator;
   final int? maxLength;
+  final bool showCharacterCounter;
   final int maxLines;
   final bool enabled;
   final ValueChanged<String>? onChanged;
@@ -26,15 +30,39 @@ class AppTextField extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(
-        label,
-        style: AppTypography.body.copyWith(fontWeight: FontWeight.w500),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.body.copyWith(fontWeight: FontWeight.w500),
+            ),
+          ),
+          if (showCharacterCounter && maxLength != null) ...[
+            const SizedBox(width: 8),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, child) {
+                final length = value.text.characters.length;
+                return Text(
+                  '$length/$maxLength',
+                  style: AppTypography.small.copyWith(
+                    color: length >= maxLength!
+                        ? AppColors.error
+                        : AppColors.secondary.withValues(alpha: 0.65),
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
       ),
       const SizedBox(height: 8),
       TextFormField(
         controller: controller,
         enabled: enabled,
         maxLength: maxLength,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
         maxLines: maxLines,
         validator: validator,
         onChanged: onChanged,

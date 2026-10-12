@@ -42,6 +42,7 @@ class BackupService {
       'payment_date',
       'note',
       'created_at',
+      'is_edited',
     },
     'borrowings': {
       'id',
@@ -50,6 +51,7 @@ class BackupService {
       'borrowing_date',
       'note',
       'created_at',
+      'is_edited',
     },
     'reminder_settings': {
       'debt_id',
@@ -198,6 +200,7 @@ class BackupService {
       _check(AccountAppearance.colorKeys.contains(row['color_key']));
       _timestamp(row['updated_at']);
     } else {
+      _integer(row['is_edited'], 0, 1);
       _string(row['debt_id']);
       _integer(row['amount_minor'], 1, Money.maxMinor);
       _date(row[table == 'payments' ? 'payment_date' : 'borrowing_date']);

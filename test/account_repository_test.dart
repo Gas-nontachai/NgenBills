@@ -302,7 +302,7 @@ void main() {
     },
   );
 
-  test('Version 1 account and history persist across reopen', () async {
+  test('Current schema account and history persist across reopen', () async {
     final temp = await Directory.systemTemp.createTemp('ngenbills-v1-');
     addTearDown(() => temp.delete(recursive: true));
     final persistent = AppDatabase(

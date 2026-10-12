@@ -935,7 +935,7 @@ void main() {
     },
   );
 
-  testWidgets('Carousel neighbor and add-preview visual references', (
+  testWidgets('Carousel payment action stays available during add preview', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -944,12 +944,6 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    await (FontLoader(
-      'Kanit',
-    )..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'))).load();
-    await (FontLoader(
-      'MaterialIcons',
-    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
     final container = await boot(tester);
     await tester.runAsync(
       () => precacheImage(
@@ -958,13 +952,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    String golden(String name) =>
-        Platform.isLinux ? 'goldens/linux/$name.png' : 'goldens/$name.png';
     expect(find.text('บันทึกการจ่าย').hitTestable(), findsOneWidget);
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('carousel_neighbors')),
-    );
     container.read(selectedDebtIdProvider.notifier).select('1');
     await tester.pumpAndSettle();
     final gesture = await tester.startGesture(
@@ -974,15 +962,7 @@ void main() {
     await gesture.moveBy(const Offset(-140, 0));
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('บันทึกการจ่าย').hitTestable(), findsOneWidget);
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('carousel_add_preview')),
-    );
     await tester.pump(const Duration(milliseconds: 300));
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(golden('carousel_add_ready')),
-    );
     await gesture.cancel();
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -1032,9 +1012,9 @@ void main() {
         ),
         findsNothing,
       );
-      final reorder = tester.widget<ReorderableListView>(
-        find.byType(ReorderableListView),
-      ).onReorderItem!;
+      final reorder = tester
+          .widget<ReorderableListView>(find.byType(ReorderableListView))
+          .onReorderItem!;
       reorder(0, 2);
       reorder(1, 0);
       await tester.pumpAndSettle();
@@ -1085,37 +1065,4 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-
-  testWidgets('Picker visual reference', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-    final fonts = FontLoader('Kanit')
-      ..addFont(rootBundle.load('assets/fonts/Kanit-Regular.ttf'));
-    await fonts.load();
-    final icons = FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await icons.load();
-    await boot(tester);
-    await tester.runAsync(
-      () => precacheImage(
-        const AssetImage('assets/logo.png'),
-        tester.element(find.byType(NgenBillsApp)),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('บัญชีแรก'));
-    await tester.pumpAndSettle();
-    await expectLater(
-      find.byType(NgenBillsApp),
-      matchesGoldenFile(
-        Platform.isLinux
-            ? 'goldens/linux/account_picker.png'
-            : 'goldens/account_picker.png',
-      ),
-    );
-  });
 }

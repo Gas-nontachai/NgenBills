@@ -23,9 +23,28 @@ class DebtDirectionChip extends StatelessWidget {
       color: _color(direction).withValues(alpha: .08),
       borderRadius: BorderRadius.circular(20),
     ),
-    child: Text(
-      _label(direction),
-      style: TextStyle(fontSize: 11, height: 1.4, color: _color(direction)),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          direction == DebtDirection.payable
+              ? Icons.north_east_rounded
+              : Icons.south_west_rounded,
+          size: 13,
+          color: _color(direction),
+        ),
+        const SizedBox(width: 3),
+        Flexible(
+          child: Text(
+            _label(direction),
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: _color(direction),
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }

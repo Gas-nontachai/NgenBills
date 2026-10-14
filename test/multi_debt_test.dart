@@ -435,6 +435,13 @@ void main() {
     (tester) async {
       final container = await boot(tester);
       final accounts = await memory.list();
+      final activeStar = find.descendant(
+        of: find.byKey(const ValueKey('active-account-card')),
+        matching: find.byIcon(Icons.star_rounded),
+      );
+      expect(activeStar, findsOneWidget);
+      expect(tester.widget<Icon>(activeStar).semanticLabel, 'บัญชีหลัก');
+      expect(find.text('บัญชีหลัก'), findsNothing);
       expect(find.text('บัญชีแรก'), findsOneWidget);
       expect(find.text('เพิ่มบัญชี'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
@@ -445,6 +452,7 @@ void main() {
       await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
       await tester.pumpAndSettle();
       expect(find.text('บัญชีสอง'), findsOneWidget);
+      expect(activeStar, findsNothing);
       expect(find.text('฿200'), findsNWidgets(2));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
@@ -467,8 +475,12 @@ void main() {
       await write;
       await tester.pumpAndSettle();
       await memory.setDefault(accounts[1].id);
+      container.invalidate(defaultDebtIdProvider);
+      await tester.pumpAndSettle();
+      expect(activeStar, findsNothing);
       await tester.pumpWidget(const SizedBox());
       final restarted = await boot(tester, seed: false);
+      expect(activeStar, findsOneWidget);
       expect(find.text('บัญชีสอง'), findsOneWidget);
       restarted
           .read(selectedDebtIdProvider.notifier)

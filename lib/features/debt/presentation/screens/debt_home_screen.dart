@@ -253,35 +253,36 @@ class _AccountPage extends ConsumerWidget {
                   accountHeader: InkWell(
                     onTap: writing ? null : () => onPicker(debt.id),
                     borderRadius: BorderRadius.circular(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                debt.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.title,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.expand_more_rounded,
-                              key: active
-                                  ? const ValueKey('account-picker-arrow')
-                                  : null,
-                              semanticLabel: 'เลือกบัญชี',
-                              size: 20,
-                              color: AppColors.primaryDark,
-                            ),
-                          ],
+                        Flexible(
+                          child: Text(
+                            debt.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.title,
+                          ),
                         ),
-                        if (defaultId == debt.id)
-                          const Text('บัญชีหลัก', style: AppTypography.caption),
+                        if (defaultId == debt.id) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.star_rounded,
+                            semanticLabel: 'บัญชีหลัก',
+                            size: 20,
+                            color: AppColors.gold,
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          key: active
+                              ? const ValueKey('account-picker-arrow')
+                              : null,
+                          semanticLabel: 'เลือกบัญชี',
+                          size: 20,
+                          color: AppColors.primaryDark,
+                        ),
                       ],
                     ),
                   ),

@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -12,7 +14,13 @@ import 'payment_detail_sheet.dart';
 import 'delete_payment_sheet.dart';
 
 class PaymentListItem extends StatelessWidget {
-  const PaymentListItem({super.key, required this.payment});
+  const PaymentListItem({
+    super.key,
+    required this.payment,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final Payment payment;
   @override
   Widget build(BuildContext context) => AppCard(
@@ -22,7 +30,8 @@ class PaymentListItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => PaymentDetailSheet.open(context, payment),
+        onTap: () =>
+            PaymentDetailSheet.open(context, payment, direction: direction),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 4, 12),
           child: Row(
@@ -43,7 +52,10 @@ class PaymentListItem extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text('ชำระหนี้', style: AppTypography.body),
+                          child: Text(
+                            wording.paymentHistory,
+                            style: AppTypography.body,
+                          ),
                         ),
                         if (payment.isEdited) ...[
                           const SizedBox(width: 6),
@@ -85,7 +97,7 @@ class PaymentListItem extends StatelessWidget {
                 ),
               ),
               PopupMenuButton<String>(
-                tooltip: 'เมนูรายการจ่าย',
+                tooltip: wording.paymentMenu,
                 icon: const Icon(Icons.more_vert_rounded, size: 22),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -93,18 +105,27 @@ class PaymentListItem extends StatelessWidget {
                 onSelected: (value) {
                   switch (value) {
                     case 'details':
-                      PaymentDetailSheet.open(context, payment);
+                      PaymentDetailSheet.open(
+                        context,
+                        payment,
+                        direction: direction,
+                      );
                     case 'edit':
                       EditHistorySheet.open(
                         context,
                         DebtHistoryEntry(payment: payment),
+                        direction: direction,
                       );
                     case 'delete':
-                      DeletePaymentSheet.open(context, payment);
+                      DeletePaymentSheet.open(
+                        context,
+                        payment,
+                        direction: direction,
+                      );
                   }
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'details',
                     child: Row(
                       children: [
@@ -114,7 +135,7 @@ class PaymentListItem extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'edit',
                     child: Row(
                       children: [
@@ -124,7 +145,7 @@ class PaymentListItem extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
@@ -134,7 +155,7 @@ class PaymentListItem extends StatelessWidget {
                         ),
                         SizedBox(width: 12),
                         Text(
-                          'ลบรายการจ่าย',
+                          wording.deletePayment,
                           style: TextStyle(color: AppColors.error),
                         ),
                       ],

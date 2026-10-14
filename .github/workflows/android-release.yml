@@ -46,7 +46,7 @@ jobs:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: flutter test tool/release_screenshots_test.dart --dart-define="RELEASE_VERSION=$RELEASE_VERSION"
       - name: Upload screenshot previews
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-screenshots
           path: |
@@ -88,19 +88,37 @@ jobs:
           sha256sum "ngenbills-$RELEASE_VERSION.apk" > SHA256SUMS
       - name: Publish GitHub Release
         env:
+          SCREENSHOT_PREVIEW_WIDTH: '100'
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
           RELEASE_BUILD: ${{ steps.version.outputs.build_number }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
+          gh api --method POST "repos/$GH_REPO/releases/generate-notes" \
+            -f "tag_name=$RELEASE_TAG" --jq '.body' \
+            > "$RUNNER_TEMP/generated-release-notes.md"
           {
-            printf '## Screenshots\n\n'
+            printf '## [📥 ดาวน์โหลด APK](https://github.com/%s/releases/download/%s/ngenbills-%s.apk)\n\n' \
+              "$GH_REPO" "$RELEASE_TAG" "$RELEASE_VERSION"
+            cat "$RUNNER_TEMP/generated-release-notes.md"
+            printf '\n\n## Screenshots\n\n'
+            printf '<table><tr>\n'
             for screen in home payment payment-detail account notifications settings backup; do
-              printf '<img src="https://github.com/%s/releases/download/%s/%s.png" width="320" alt="%s screen with sample data">\n\n' \
-                "$GH_REPO" "$RELEASE_TAG" "$screen" "$screen"
+              image_url="https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$screen.png"
+              printf '<td><a href="#screenshot-%s"><img src="%s" width="%s" alt="%s screen with sample data"></a></td>\n' \
+                "$screen" "$image_url" "$SCREENSHOT_PREVIEW_WIDTH" "$screen"
             done
+            printf '</tr></table>\n\n'
+            printf '<details>\n<summary>ดูภาพขนาดใหญ่ (7 รูป)</summary>\n\n'
+            for screen in home payment payment-detail account notifications settings backup; do
+              image_url="https://github.com/$GH_REPO/releases/download/$RELEASE_TAG/$screen.png"
+              printf '### Screenshot %s\n\n<img src="%s" width="390" alt="%s screen with sample data">\n\n' \
+                "$screen" "$image_url" "$screen"
+            done
+            printf '</details>\n'
           } > "$RUNNER_TEMP/release-notes.md"
           gh release create "$RELEASE_TAG" dist/*.apk dist/SHA256SUMS \
             dist/screenshots/*.png \
             --verify-tag --title "$RELEASE_TAG (build $RELEASE_BUILD)" \
-            --notes-file "$RUNNER_TEMP/release-notes.md" --generate-notes
+            --notes-file "$RUNNER_TEMP/release-notes.md"

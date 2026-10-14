@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -23,6 +25,7 @@ class DeleteDebtSheet extends ConsumerStatefulWidget {
 }
 
 class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
+  DebtWording get wording => DebtWording(widget.debt.direction);
   bool _saving = false;
   late final DebtSummary? _summary = _loadSummary();
   DebtSummary? _loadSummary() {
@@ -83,10 +86,10 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
           'การลบบัญชีจะลบประวัติทั้งหมด และยกเลิกการแจ้งเตือนของบัญชีนี้ด้วย${_defaultImpact()}',
       warningTitle: 'บัญชีและข้อมูลทั้งหมดจะถูกลบถาวร',
       warningMessage: 'ไม่สามารถกู้คืนข้อมูลได้',
-      warningItems: const [
-        'ยอดหนี้และยอดคงเหลือ',
-        'ประวัติการจ่ายทั้งหมด',
-        'ประวัติการกู้เพิ่มทั้งหมด',
+      warningItems: [
+        wording.accountDeleteAmounts,
+        wording.accountDeletePayments,
+        wording.accountDeleteBorrowings,
         'การตั้งค่าและการแจ้งเตือน',
       ],
       accountDeletion: true,
@@ -110,7 +113,7 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(widget.debt.name, style: AppTypography.title),
-                    const Text('บัญชีที่จะลบ', style: AppTypography.small),
+                    Text('บัญชีที่จะลบ', style: AppTypography.small),
                   ],
                 ),
               ),
@@ -127,13 +130,13 @@ class _DeleteDebtSheetState extends ConsumerState<DeleteDebtSheet> {
               child: Column(
                 children: [
                   DeleteDetailRow(
-                    label: 'ยอดหนี้คงเหลือ',
+                    label: wording.outstanding,
                     value: Money.format(_summary.remaining),
                     emphasis: true,
                   ),
                   const SizedBox(height: 12),
                   DeleteDetailRow(
-                    label: 'ยอดหนี้รวม',
+                    label: wording.total,
                     value: Money.format(_summary.totalDebt),
                     emphasis: true,
                   ),

@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -111,7 +113,12 @@ class _DebtHomeScreenState extends ConsumerState<DebtHomeScreen> {
           return const Scaffold(body: AppLoadingState());
         }
         if (reminders.onboardingDone == false) {
-          return const NotificationOnboardingScreen();
+          final onboardingAccount =
+              accounts.where((a) => a.id == selected).firstOrNull ??
+              accounts.first;
+          return NotificationOnboardingScreen(
+            direction: onboardingAccount.direction,
+          );
         }
         final defaultId = defaultState.value;
         final activeId = accounts.any((a) => a.id == selected)
@@ -253,35 +260,36 @@ class _AccountPage extends ConsumerWidget {
                   accountHeader: InkWell(
                     onTap: writing ? null : () => onPicker(debt.id),
                     borderRadius: BorderRadius.circular(8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                debt.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.title,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.expand_more_rounded,
-                              key: active
-                                  ? const ValueKey('account-picker-arrow')
-                                  : null,
-                              semanticLabel: 'เลือกบัญชี',
-                              size: 20,
-                              color: AppColors.primaryDark,
-                            ),
-                          ],
+                        Flexible(
+                          child: Text(
+                            debt.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.title,
+                          ),
                         ),
-                        if (defaultId == debt.id)
-                          const Text('บัญชีหลัก', style: AppTypography.caption),
+                        if (defaultId == debt.id) ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.star_rounded,
+                            semanticLabel: 'บัญชีหลัก',
+                            size: 20,
+                            color: AppColors.gold,
+                          ),
+                        ],
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          key: active
+                              ? const ValueKey('account-picker-arrow')
+                              : null,
+                          semanticLabel: 'เลือกบัญชี',
+                          size: 20,
+                          color: AppColors.primaryDark,
+                        ),
                       ],
                     ),
                   ),
@@ -366,7 +374,7 @@ class _AccountPage extends ConsumerWidget {
           height: 270,
           child: Center(
             child: error
-                ? const Text('โหลดบัญชีไม่สำเร็จ', style: AppTypography.small)
+                ? Text('โหลดบัญชีไม่สำเร็จ', style: AppTypography.small)
                 : const SizedBox(
                     width: 160,
                     height: 12,
@@ -382,6 +390,7 @@ class _AccountPage extends ConsumerWidget {
 class _AccountDetails extends StatelessWidget {
   const _AccountDetails({super.key, required this.summary});
   final DebtSummary summary;
+  DebtWording get wording => DebtWording(summary.debt.direction);
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -389,7 +398,7 @@ class _AccountDetails extends StatelessWidget {
       const ReminderSyncNotice(),
       const SizedBox(height: 16),
       AppButton(
-        label: summary.isPaid ? 'ชำระครบแล้ว' : 'บันทึกการจ่าย',
+        label: summary.isPaid ? wording.complete : wording.savePayment,
         icon: summary.isPaid
             ? Icons.check_circle_outline
             : Icons.add_circle_outline,
@@ -400,9 +409,7 @@ class _AccountDetails extends StatelessWidget {
       const SizedBox(height: 24),
       Row(
         children: [
-          const Expanded(
-            child: Text('ประวัติรายการ', style: AppTypography.title),
-          ),
+          Expanded(child: Text('ประวัติรายการ', style: AppTypography.title)),
           Text(
             '${summary.history.length} รายการ',
             style: AppTypography.caption,
@@ -411,24 +418,30 @@ class _AccountDetails extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       if (summary.history.isEmpty)
-        const AppCard(
+        AppCard(
           color: AppColors.primarySoft,
           child: AppEmptyState(
             title: 'ยังไม่มีประวัติรายการ',
-            message: 'บันทึกการจ่ายหรือกู้เพิ่ม\nเพื่อเริ่มติดตามบัญชีของคุณ',
+            message: wording.emptyHistory,
           ),
         ),
       ...summary.history.map(
         (entry) => Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: entry.payment != null
-              ? PaymentListItem(payment: entry.payment!)
-              : BorrowingListItem(borrowing: entry.borrowing!),
+              ? PaymentListItem(
+                  payment: entry.payment!,
+                  direction: summary.debt.direction,
+                )
+              : BorrowingListItem(
+                  borrowing: entry.borrowing!,
+                  direction: summary.debt.direction,
+                ),
         ),
       ),
       const SizedBox(height: 18),
-      const Text(
-        'ค่อย ๆ จ่าย ค่อย ๆ ไป 🌱',
+      Text(
+        wording.footer,
         style: AppTypography.caption,
         textAlign: TextAlign.center,
       ),

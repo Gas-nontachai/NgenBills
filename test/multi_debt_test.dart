@@ -53,6 +53,7 @@ class _MemoryDebts extends DebtRepository {
     required String name,
     required int amountMinor,
     String? note,
+    DebtDirection direction = DebtDirection.payable,
   }) async {
     final id = '${accounts.length}';
     accounts.add(
@@ -61,6 +62,7 @@ class _MemoryDebts extends DebtRepository {
         name: name.trim(),
         initialAmountMinor: amountMinor,
         note: note,
+        direction: direction,
         createdAt: DateTime(2026),
         updatedAt: DateTime(2026),
       ),
@@ -237,6 +239,75 @@ void main() {
     return container;
   }
 
+  testWidgets('Carousel fits the settled card after leaving a taller account', (
+    tester,
+  ) async {
+    var selected = 'tall';
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return Column(
+                  children: [
+                    AccountSwipeCard(
+                      accountIds: const ['tall', 'short'],
+                      selectedId: selected,
+                      enabled: true,
+                      onSelect: (id) async => update(() => selected = id),
+                      onCreate: () {},
+                      itemBuilder: (_, index, _) => SizedBox(
+                        height: index == 0 ? 400 : 240,
+                        child: Text('Account $index'),
+                      ),
+                    ),
+                    const Text('Details', key: ValueKey('below-carousel')),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(412, .1),
+    );
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(selected, 'short');
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(252, .1),
+    );
+    final card = tester.getRect(
+      find.byKey(const ValueKey('active-account-card')),
+    );
+    final details = tester.getRect(
+      find.byKey(const ValueKey('below-carousel')),
+    );
+    expect(details.top - card.bottom, closeTo(12, .1));
+    update(() => selected = 'tall');
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(412, .1),
+    );
+    update(() => selected = 'short');
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(252, .1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Carousel updates its last-page boundary without remounting or disabling',
     (tester) async {
@@ -412,6 +483,7 @@ void main() {
   ) async {
     memory = _MemoryDebts()..accounts.clear();
     final container = await boot(tester, seed: false);
+    await tester.ensureVisible(find.text('เพิ่มหนี้ก้อนแรก'));
     await tester.tap(find.text('เพิ่มหนี้ก้อนแรก'));
     await tester.pumpAndSettle();
     expect(find.byType(CreateDebtSheet), findsOneWidget);
@@ -432,6 +504,13 @@ void main() {
     (tester) async {
       final container = await boot(tester);
       final accounts = await memory.list();
+      final activeStar = find.descendant(
+        of: find.byKey(const ValueKey('active-account-card')),
+        matching: find.byIcon(Icons.star_rounded),
+      );
+      expect(activeStar, findsOneWidget);
+      expect(tester.widget<Icon>(activeStar).semanticLabel, 'บัญชีหลัก');
+      expect(find.text('บัญชีหลัก'), findsNothing);
       expect(find.text('บัญชีแรก'), findsOneWidget);
       expect(find.text('เพิ่มบัญชี'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('account-picker-arrow')));
@@ -442,6 +521,7 @@ void main() {
       await tester.drag(find.byType(AccountSwipeCard), const Offset(-260, 0));
       await tester.pumpAndSettle();
       expect(find.text('บัญชีสอง'), findsOneWidget);
+      expect(activeStar, findsNothing);
       expect(find.text('฿200'), findsNWidgets(2));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
@@ -464,8 +544,12 @@ void main() {
       await write;
       await tester.pumpAndSettle();
       await memory.setDefault(accounts[1].id);
+      container.invalidate(defaultDebtIdProvider);
+      await tester.pumpAndSettle();
+      expect(activeStar, findsNothing);
       await tester.pumpWidget(const SizedBox());
       final restarted = await boot(tester, seed: false);
+      expect(activeStar, findsOneWidget);
       expect(find.text('บัญชีสอง'), findsOneWidget);
       restarted
           .read(selectedDebtIdProvider.notifier)

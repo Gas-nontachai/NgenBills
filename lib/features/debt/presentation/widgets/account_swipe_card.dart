@@ -231,12 +231,18 @@ class _AccountSwipeCardState extends State<AccountSwipeCard> {
     builder: (context, box) {
       _viewport = box.maxWidth;
       final fallback = 400 * MediaQuery.textScalerOf(context).scale(14) / 14;
-      var height = _heights[widget.selectedId] ?? fallback;
-      for (var i = _page.floor() - 1; i <= _page.ceil() + 1; i++) {
-        if (i >= 0 && i <= _last) {
-          height = math.max(height, _heights[widget.accountIds[i]] ?? 0);
-        }
-      }
+      final position = _page.clamp(0.0, _last.toDouble());
+      final before = position.floor();
+      final after = position.ceil();
+      final beforeHeight =
+          _heights[widget.accountIds[before]] ??
+          _heights[widget.selectedId] ??
+          fallback;
+      final afterHeight = _heights[widget.accountIds[after]] ?? beforeHeight;
+      // Follow the pages in motion, then fit the settled account exactly.
+      // A taller neighboring account must not leave space below a shorter one.
+      final height =
+          beforeHeight + (afterHeight - beforeHeight) * (position - before);
       final lastHeight = _heights[widget.accountIds.last] ?? height;
       final width = _viewport * _fraction - 12;
       final plusLeft =

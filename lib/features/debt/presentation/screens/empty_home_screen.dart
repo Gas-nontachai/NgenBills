@@ -7,6 +7,8 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/buttons/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../sheets/create_debt_sheet.dart';
+import '../../domain/entities/debt_direction.dart';
+import '../widgets/debt_direction_chip.dart';
 
 class EmptyHomeScreen extends StatelessWidget {
   const EmptyHomeScreen({super.key});
@@ -52,6 +54,46 @@ class EmptyHomeScreen extends StatelessWidget {
                         'แค่รู้ว่าเรามีหนี้เท่าไหร่\nก็เป็นจุดเริ่มต้นที่ดีแล้ว',
                         style: AppTypography.body,
                         textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'เริ่มได้ทั้งเงินที่ต้องจ่ายคืน และเงินที่รอรับคืน',
+                        style: AppTypography.small,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      const Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DebtDirectionChip(
+                                direction: DebtDirection.payable,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'ฉันต้องจ่ายเงินคืน',
+                                style: AppTypography.caption,
+                              ),
+                            ],
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DebtDirectionChip(
+                                direction: DebtDirection.receivable,
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'ฉันรอรับเงินคืน',
+                                style: AppTypography.caption,
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 28),
                       const ReminderSyncNotice(),

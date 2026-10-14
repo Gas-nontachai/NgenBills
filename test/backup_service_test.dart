@@ -7,6 +7,7 @@ import 'package:ngenbills/core/database/app_database.dart';
 import 'package:ngenbills/core/errors/app_exception.dart';
 import 'package:ngenbills/features/backup/data/backup_service.dart';
 import 'package:ngenbills/features/debt/data/repositories/debt_repository.dart';
+import 'package:ngenbills/features/debt/domain/entities/debt_direction.dart';
 
 void main() {
   setUpAll(sqfliteFfiInit);
@@ -65,17 +66,53 @@ void main() {
   Uint8List encode(Map<String, dynamic> value) =>
       Uint8List.fromList(utf8.encode(jsonEncode(value)));
 
-  test('Edited markers survive schema 1 backup and restore', () async {
+  test('Edited markers survive current schema backup and restore', () async {
     final db = await database.instance;
     for (final table in ['payments', 'borrowings']) {
       await db.update(table, {'is_edited': 1});
     }
     final current = await document();
-    expect(current['schemaVersion'], 1);
+    expect(current['schemaVersion'], 2);
     await service.restore(service.decode(encode(current)));
     for (final table in ['payments', 'borrowings']) {
       expect((await db.query(table)).single['is_edited'], 1);
     }
+  });
+
+  test('Legacy schema 1 backup restores accounts as payable', () async {
+    final legacy = await document();
+    legacy['schemaVersion'] = 1;
+    for (final row in legacy['data']['debts'] as List) {
+      (row as Map).remove('direction');
+    }
+    final db = await database.instance;
+    await db.update('debts', {'direction': 'receivable'});
+    await service.restore(service.decode(encode(legacy)));
+    expect((await db.query('debts')).single['direction'], 'payable');
+    final restored = await document();
+    for (final table in [
+      'payments',
+      'borrowings',
+      'reminder_settings',
+      'app_preferences',
+    ]) {
+      expect(restored['data'][table], legacy['data'][table]);
+    }
+  });
+
+  test('Schema 2 backup retains both account directions', () async {
+    await DebtRepository(database).create(
+      name: 'รอรับ',
+      amountMinor: 2000,
+      direction: DebtDirection.receivable,
+    );
+    final before = await document();
+    await service.restore(service.decode(encode(before)));
+    expect((await document())['data'], before['data']);
+    expect((await DebtRepository(database).list()).map((d) => d.direction), [
+      DebtDirection.payable,
+      DebtDirection.receivable,
+    ]);
   });
 
   test('Backup restores custom account order into a fresh database', () async {
@@ -168,12 +205,16 @@ void main() {
   });
 
   final invalid = <String, void Function(Map<String, dynamic>)>{
+    'invalid direction': (d) => d['data']['debts'][0]['direction'] = 'other',
+    'null direction': (d) => d['data']['debts'][0]['direction'] = null,
+    'missing direction': (d) =>
+        (d['data']['debts'][0] as Map).remove('direction'),
     'invalid edit marker': (d) => d['data']['payments'][0]['is_edited'] = 2,
     'wrong marker type': (d) => d['data']['borrowings'][0]['is_edited'] = true,
     'missing marker': (d) =>
         (d['data']['payments'][0] as Map).remove('is_edited'),
     'unsupported file version': (d) => d['formatVersion'] = 2,
-    'unsupported schema': (d) => d['schemaVersion'] = 2,
+    'unsupported schema': (d) => d['schemaVersion'] = 3,
     'wrong application': (d) => d['app'] = 'other',
     'missing table': (d) => (d['data'] as Map).remove('payments'),
     'duplicate ID': (d) =>

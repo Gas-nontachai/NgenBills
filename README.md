@@ -116,6 +116,8 @@ git push origin v1.0.0
 
 สร้างภาพ preview ในเครื่อง (ไฟล์อยู่ใน `build/release-screenshots/` ซึ่งไม่ commit):
 
+ใน release notes ลิงก์ดาวน์โหลด APK อยู่บนสุด ตามด้วยรายละเอียดการเปลี่ยนแปลงที่ GitHub สร้างให้ และ screenshots อยู่ท้ายสุด ภาพทั้ง 7 รูปเรียงแถวเดียวในตาราง กว้างรูปละ 100 px ลิงก์ภาพย่อชี้ไปยังภาพใหญ่ใน release notes มีส่วน “ดูภาพขนาดใหญ่ (7 รูป)” ที่กดขยายเพื่อดูภาพกว้าง 390 px ในหน้าเดิมได้ ส่วนไฟล์ใน Assets ยังดาวน์โหลดได้ตามปกติ ปรับขนาดภาพย่อได้ที่ `SCREENSHOT_PREVIEW_WIDTH` ใน release workflow โดยไฟล์ PNG ต้นฉบับยังมีขนาด 1170 × 2532 px
+
 ```sh
 flutter test tool/release_screenshots_test.dart
 ```

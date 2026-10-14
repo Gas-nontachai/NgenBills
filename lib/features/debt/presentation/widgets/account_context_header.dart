@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/debt_providers.dart';
 import 'account_avatar.dart';
+import 'debt_direction_chip.dart';
 
 class AccountContextHeader extends ConsumerWidget {
   const AccountContextHeader({super.key, required this.debtId, this.name});
@@ -22,6 +23,12 @@ class AccountContextHeader extends ConsumerWidget {
         colorKey: debt?.colorKey ?? 'green',
       ),
       title: Text(debt?.name ?? name ?? 'บัญชีหนี้'),
+      subtitle: debt == null
+          ? null
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: DebtDirectionChip(direction: debt.direction),
+            ),
     );
   }
 }

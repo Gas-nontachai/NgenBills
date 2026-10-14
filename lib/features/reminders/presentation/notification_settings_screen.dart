@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -80,7 +82,7 @@ class _NotificationSettingsScreenState
             title: 'ปิดการแจ้งเตือนทั้งหมด?',
             icon: Icons.notifications_off_outlined,
             message:
-                'จะหยุดการแจ้งเตือนหนี้ทุกบัญชี โดยเก็บวันและเวลาเดิมไว้ '
+                'จะหยุดการแจ้งเตือนทุกบัญชี โดยเก็บวันและเวลาเดิมไว้ '
                 'คุณเปิดเตือนรายบัญชีอีกครั้งได้ภายหลัง '
                 'สิทธิ์แจ้งเตือนของเครื่องจะไม่เปลี่ยน',
             confirmLabel: 'ยืนยันปิดการแจ้งเตือนทั้งหมด',
@@ -141,7 +143,7 @@ class _NotificationSettingsScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'เตือนก่อนวันชำระ',
+                              'เตือนก่อนวันครบกำหนด',
                               style: AppTypography.title.copyWith(fontSize: 16),
                             ),
                             const SizedBox(height: 2),
@@ -208,6 +210,12 @@ class _NotificationSettingsScreenState
                           Builder(
                             builder: (context) {
                               final debt = accounts[index];
+                              final completed =
+                                  ref
+                                      .watch(debtSummaryByIdProvider(debt.id))
+                                      .value
+                                      ?.isPaid ==
+                                  true;
                               return ListTile(
                                 dense: true,
                                 minTileHeight: 64,
@@ -229,7 +237,10 @@ class _NotificationSettingsScreenState
                                   ),
                                 ),
                                 subtitle: Text(
-                                  status.loadError
+                                  completed
+                                      ? DebtWording(debt.direction)
+                                            .reminderComplete
+                                      : status.loadError
                                       ? 'โหลดการตั้งค่าไม่สำเร็จ'
                                       : status.forDebt(debt.id)?.enabled == true
                                       ? 'เปิดเตือน · ครบกำหนดวันที่ ${status.forDebt(debt.id)!.dueDay}'
@@ -240,18 +251,24 @@ class _NotificationSettingsScreenState
                                     height: 1.4,
                                   ),
                                 ),
-                                trailing: const Icon(
-                                  Icons.chevron_right,
-                                  size: 18,
-                                  color: AppColors.secondary,
-                                ),
+                                trailing: completed
+                                    ? null
+                                    : const Icon(
+                                        Icons.chevron_right,
+                                        size: 18,
+                                        color: AppColors.secondary,
+                                      ),
                                 onTap:
-                                    status.busy || status.loadError || writing
+                                    completed ||
+                                        status.busy ||
+                                        status.loadError ||
+                                        writing
                                     ? null
                                     : () => ReminderSettingsSheet.open(
                                         context,
                                         debt.id,
                                         debt.name,
+                                        direction: debt.direction,
                                       ),
                               );
                             },

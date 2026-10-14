@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -8,14 +10,17 @@ import '../../../../app/theme/app_spacing.dart';
 class HalfDonutChart extends StatelessWidget {
   const HalfDonutChart({
     super.key,
+    this.direction = DebtDirection.payable,
     required this.progress,
     required this.center,
   });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final double progress;
   final Widget center;
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'ชำระแล้ว ${(progress.clamp(0, 1) * 100).round()} เปอร์เซ็นต์',
+    label: wording.progressSemantics((progress.clamp(0, 1) * 100).round()),
     child: LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth.clamp(100.0, 380.0);

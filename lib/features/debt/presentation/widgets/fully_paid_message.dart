@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -6,9 +8,11 @@ import '../../../../core/widgets/cards/app_card.dart';
 import '../../../../core/widgets/sprout_illustration.dart';
 
 class FullyPaidMessage extends StatelessWidget {
-  const FullyPaidMessage({super.key});
+  const FullyPaidMessage({super.key, this.direction = DebtDirection.payable});
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   @override
-  Widget build(BuildContext context) => const AppCard(
+  Widget build(BuildContext context) => AppCard(
     color: AppColors.primarySoft,
     padding: EdgeInsets.all(16),
     child: Row(
@@ -19,12 +23,9 @@ class FullyPaidMessage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('เก่งมากเลย! 🌱', style: AppTypography.title),
+              Text(wording.congratTitle, style: AppTypography.title),
               SizedBox(height: 4),
-              Text(
-                'คุณก้าวมาถึงเป้าหมายแล้ว\nขอบคุณที่ดูแลตัวเองนะ',
-                style: AppTypography.small,
-              ),
+              Text(wording.congratBody, style: AppTypography.small),
             ],
           ),
         ),

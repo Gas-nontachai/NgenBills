@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,19 +14,28 @@ import '../../../debt/presentation/providers/debt_providers.dart';
 import '../../domain/entities/payment.dart';
 
 class DeletePaymentSheet extends ConsumerStatefulWidget {
-  const DeletePaymentSheet({super.key, required this.payment});
+  const DeletePaymentSheet({
+    super.key,
+    required this.payment,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
   final Payment payment;
-  static Future<void> open(BuildContext context, Payment payment) =>
-      showAppSheet<void>(
-        context,
-        DeletePaymentSheet(payment: payment),
-        guarded: true,
-      );
+  static Future<void> open(
+    BuildContext context,
+    Payment payment, {
+    DebtDirection direction = DebtDirection.payable,
+  }) => showAppSheet<void>(
+    context,
+    DeletePaymentSheet(payment: payment, direction: direction),
+    guarded: true,
+  );
   @override
   ConsumerState<DeletePaymentSheet> createState() => _DeletePaymentSheetState();
 }
 
 class _DeletePaymentSheetState extends ConsumerState<DeletePaymentSheet> {
+  DebtWording get wording => DebtWording(widget.direction);
   bool _saving = false;
   Future<void> _delete() async {
     if (_saving) return;
@@ -41,9 +52,7 @@ class _DeletePaymentSheetState extends ConsumerState<DeletePaymentSheet> {
       if (mounted && saved) {
         AppSnackBar.show(
           context,
-          existed
-              ? 'ลบรายการจ่ายแล้ว ยอดคงเหลืออัปเดตแล้ว'
-              : 'รายการนี้ถูกลบไปแล้ว',
+          existed ? wording.deletePaymentSaved : 'รายการนี้ถูกลบไปแล้ว',
         );
         setState(() => _saving = false);
         await WidgetsBinding.instance.endOfFrame;
@@ -60,12 +69,13 @@ class _DeletePaymentSheetState extends ConsumerState<DeletePaymentSheet> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
     child: AppDeleteSheet(
-      title: 'ลบรายการจ่าย',
-      message:
-          'ยอดคงเหลือจะเพิ่มขึ้น ${Money.format(widget.payment.amountMinor)} เมื่อเอารายการนี้ออกจากยอดที่จ่ายแล้ว',
+      title: wording.deletePayment,
+      message: wording.deletePaymentExplanation(
+        Money.format(widget.payment.amountMinor),
+      ),
       warningTitle: 'ลบเฉพาะรายการนี้อย่างถาวร',
       warningMessage: 'รายการจะหายจากประวัติ และไม่สามารถกู้คืนได้',
-      confirmLabel: 'ลบรายการจ่าย',
+      confirmLabel: wording.deletePayment,
       onConfirm: ref.watch(paymentActionProvider) ? null : _delete,
       onCancel: () => Navigator.pop(context),
       isLoading: _saving,
@@ -79,18 +89,18 @@ class _DeletePaymentSheetState extends ConsumerState<DeletePaymentSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             DeleteDetailRow(
-              label: 'จำนวนเงินที่จ่าย',
+              label: wording.paymentAmount,
               value: Money.format(widget.payment.amountMinor),
               emphasis: true,
             ),
             const SizedBox(height: 12),
             DeleteDetailRow(
-              label: 'วันที่จ่าย',
+              label: wording.paymentDate,
               value: AppDates.format(widget.payment.date),
             ),
             if ((widget.payment.note ?? '').isNotEmpty) ...[
               const SizedBox(height: 12),
-              const Text('หมายเหตุ', style: AppTypography.small),
+              Text('หมายเหตุ', style: AppTypography.small),
               Text(widget.payment.note!, style: AppTypography.body),
             ],
           ],

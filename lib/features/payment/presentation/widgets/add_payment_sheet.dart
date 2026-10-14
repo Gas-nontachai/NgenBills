@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +33,7 @@ class AddPaymentSheet extends ConsumerStatefulWidget {
 }
 
 class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
+  DebtWording get wording => DebtWording(widget.summary.debt.direction);
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController(), _note = TextEditingController();
   late final DateTime _initialDate = AppDates.today();
@@ -84,7 +87,7 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
       initialDate: _date,
       firstDate: DateTime(1900),
       lastDate: AppDates.today(),
-      helpText: 'เลือกวันที่จ่าย',
+      helpText: wording.pickPaymentDate,
       cancelText: 'ยกเลิก',
       confirmText: 'ยืนยัน',
     );
@@ -109,10 +112,7 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
                 ),
           );
       if (mounted && saved) {
-        AppSnackBar.show(
-          context,
-          'บันทึกการจ่ายแล้ว อีกก้าวที่ใกล้เป้าหมาย 🌱',
-        );
+        AppSnackBar.show(context, wording.paymentSaved);
         await _pop();
       }
     } catch (error) {
@@ -129,7 +129,7 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
       if (!didPop) _close();
     },
     child: AppBottomSheet(
-      title: 'บันทึกการจ่าย',
+      title: wording.savePayment,
       onClose: _saving ? null : _close,
       onDragClose: _close,
       child: Column(
@@ -140,6 +140,7 @@ class _AddPaymentSheetState extends ConsumerState<AddPaymentSheet> {
             name: widget.summary.debt.name,
           ),
           PaymentForm(
+            direction: widget.summary.debt.direction,
             formKey: _form,
             amount: _amount,
             note: _note,

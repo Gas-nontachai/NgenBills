@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
@@ -65,10 +67,7 @@ class DebtRepository {
         throw const AppException('บัญชีมีการเปลี่ยนแปลง กรุณาเปิดรายการใหม่');
       }
       final defaultId = await _resolveDefault(txn);
-      final orderedIds = [
-        ?defaultId,
-        ...ids.where((id) => id != defaultId),
-      ];
+      final orderedIds = [?defaultId, ...ids.where((id) => id != defaultId)];
       await txn.insert('app_preferences', {
         'key': 'account_order',
         'value': jsonEncode(orderedIds),
@@ -192,13 +191,14 @@ class DebtRepository {
     required String name,
     required int amountMinor,
     String? note,
+    DebtDirection direction = DebtDirection.payable,
   }) async {
     final clean = name.trim();
     if (clean.isEmpty || clean.length > 100) {
-      throw const AppException('ชื่อหนี้ต้องมี 1–100 ตัวอักษร');
+      throw AppException(DebtWording(direction).nameInvalid);
     }
     if (amountMinor <= 0 || amountMinor > Money.maxMinor) {
-      throw const AppException('ยอดหนี้ไม่ถูกต้อง');
+      throw AppException(DebtWording(direction).amountInvalid);
     }
     if ((note?.length ?? 0) > 500) {
       throw const AppException('หมายเหตุต้องไม่เกิน 500 ตัวอักษร');
@@ -210,6 +210,7 @@ class DebtRepository {
       await txn.insert('debts', {
         'id': id,
         'name': clean,
+        'direction': direction.name,
         'initial_amount_minor': amountMinor,
         'note': note?.trim(),
         'created_at': now,

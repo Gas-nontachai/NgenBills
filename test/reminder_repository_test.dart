@@ -35,7 +35,7 @@ void main() {
       final reminders = ReminderRepository(database);
       expect(await reminders.load(debtId), isNull);
       expect(await reminders.onboardingDone(), false);
-      expect(await (await database.instance).getVersion(), 1);
+      expect(await (await database.instance).getVersion(), 2);
       await reminders.completeOnboarding();
       await reminders.save(
         ReminderSettings(

@@ -1,3 +1,4 @@
+import '../../../debt/domain/services/debt_wording.dart';
 import '../../../../core/widgets/sheets/history_detail_content.dart';
 import '../../../debt/domain/services/debt_summary.dart';
 import '../../../debt/presentation/sheets/edit_history_sheet.dart';
@@ -10,23 +11,37 @@ import '../../domain/entities/payment.dart';
 import 'delete_payment_sheet.dart';
 
 class PaymentDetailSheet extends StatelessWidget {
-  const PaymentDetailSheet({super.key, required this.payment});
+  const PaymentDetailSheet({
+    super.key,
+    required this.payment,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final Payment payment;
-  static Future<void> open(BuildContext context, Payment payment) async {
+  static Future<void> open(
+    BuildContext context,
+    Payment payment, {
+    DebtDirection direction = DebtDirection.payable,
+  }) async {
     final action = await showAppSheet<String>(
       context,
-      PaymentDetailSheet(payment: payment),
+      PaymentDetailSheet(payment: payment, direction: direction),
     );
     if (action == 'edit' && context.mounted) {
-      await EditHistorySheet.open(context, DebtHistoryEntry(payment: payment));
+      await EditHistorySheet.open(
+        context,
+        DebtHistoryEntry(payment: payment),
+        direction: direction,
+      );
     } else if (action == 'delete' && context.mounted) {
-      await DeletePaymentSheet.open(context, payment);
+      await DeletePaymentSheet.open(context, payment, direction: direction);
     }
   }
 
   @override
   Widget build(BuildContext context) => AppBottomSheet(
-    title: 'รายละเอียดการจ่าย',
+    title: wording.paymentDetail,
     onClose: () => Navigator.pop(context),
     child: HistoryDetailContent(
       amountMinor: payment.amountMinor,
@@ -36,7 +51,7 @@ class PaymentDetailSheet extends StatelessWidget {
       icon: Icons.arrow_upward_rounded,
       iconColor: AppColors.primaryDark,
       iconBackground: AppColors.primarySoft,
-      deleteLabel: 'ลบรายการจ่าย',
+      deleteLabel: wording.deletePayment,
       onEdit: () => Navigator.pop(context, 'edit'),
       onDelete: () => Navigator.pop(context, 'delete'),
     ),

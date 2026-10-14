@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -11,7 +13,6 @@ import '../../../../core/widgets/inputs/app_amount_field.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/widgets/sprout_illustration.dart';
 import '../providers/debt_providers.dart';
-import '../../domain/entities/debt.dart';
 import '../widgets/debt_direction_chip.dart';
 import '../../../reminders/presentation/reminder_providers.dart';
 
@@ -39,6 +40,7 @@ class CreateDebtSheet extends ConsumerStatefulWidget {
 
 class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
   DebtDirection _direction = DebtDirection.payable;
+  DebtWording get wording => DebtWording(_direction);
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController(),
       _amount = TextEditingController(),
@@ -81,7 +83,7 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
         final onboardingDone =
             ref.read(reminderControllerProvider).onboardingDone == true;
         if (onboardingDone) {
-          AppSnackBar.show(context, 'เริ่มต้นได้ดีแล้ว มาค่อย ๆ ไปด้วยกัน 🌱');
+          AppSnackBar.show(context, wording.createSaved);
         }
         await finish(createdId);
       }
@@ -97,14 +99,14 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
     final busy = ref.watch(paymentActionProvider);
     final additional = widget.additional;
     return guardedSheet(
-      title: additional ? 'เพิ่มบัญชีหนี้' : 'เพิ่มหนี้ก้อนแรก',
+      title: additional ? wording.createTitle : wording.createFirstTitle,
       child: Form(
         key: _form,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const AppCard(
+            AppCard(
               color: AppColors.primarySoft,
               padding: EdgeInsets.all(16),
               child: Row(
@@ -117,10 +119,7 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
                       children: [
                         Text('เริ่มต้นทีละก้าว', style: AppTypography.title),
                         SizedBox(height: 4),
-                        Text(
-                          'แค่รู้ว่าเรามีหนี้เท่าไหร่\nก็เป็นจุดเริ่มต้นที่ดีแล้ว',
-                          style: AppTypography.small,
-                        ),
+                        Text(wording.createHelp, style: AppTypography.small),
                       ],
                     ),
                   ),
@@ -136,20 +135,18 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
             ),
             const SizedBox(height: 20),
             AppTextField(
-              label: 'ชื่อหนี้',
+              label: wording.accountName,
               controller: _name,
-              hint: 'เช่น บัตรเครดิต',
+              hint: wording.createHint,
               maxLength: 100,
               enabled: !saving && !busy,
               validator: (value) => (value ?? '').trim().isEmpty
-                  ? 'กรุณากรอกชื่อหนี้'
-                  : (value!.trim().length > 100
-                        ? 'ชื่อหนี้ต้องไม่เกิน 100 ตัวอักษร'
-                        : null),
+                  ? wording.nameRequired
+                  : (value!.trim().length > 100 ? wording.nameTooLong : null),
             ),
             const SizedBox(height: 20),
             AppAmountField(
-              label: 'ยอดหนี้ตั้งต้น (บาท)',
+              label: wording.initialAmount,
               controller: _amount,
               enabled: !saving && !busy,
             ),
@@ -165,13 +162,13 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
             ),
             const SizedBox(height: 40),
             AppButton(
-              label: additional ? 'สร้างบัญชีหนี้' : 'สร้างหนี้ก้อนแรก',
+              label: additional ? wording.createSave : wording.createFirstSave,
               onPressed: busy ? null : _save,
               isLoading: saving,
             ),
             const SizedBox(height: 20),
-            const Text(
-              'ค่อย ๆ จ่าย ค่อย ๆ ไป ถึงเป้าหมายได้เหมือนกัน',
+            Text(
+              wording.createFooter,
               textAlign: TextAlign.center,
               style: AppTypography.caption,
             ),

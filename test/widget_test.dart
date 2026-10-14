@@ -181,10 +181,17 @@ void main() {
         );
         if (direction == DebtDirection.receivable) {
           await tap(tester, 'เจ้าหนี้');
+          expect(find.text('ยอดให้ยืมตั้งต้น (บาท)'), findsOneWidget);
+          expect(find.text('ชื่อบัญชีให้ยืม'), findsOneWidget);
         }
         await tester.enterText(find.byType(TextFormField).at(0), 'บัญชีใหม่');
         await tester.enterText(find.byType(TextFormField).at(1), '1000');
-        await tap(tester, 'สร้างหนี้ก้อนแรก');
+        await tap(
+          tester,
+          direction == DebtDirection.payable
+              ? 'สร้างหนี้ก้อนแรก'
+              : 'สร้างบัญชีให้ยืมแรก',
+        );
         expect(store.debt!.direction, direction);
         expect(
           tester

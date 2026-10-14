@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../debt/domain/services/debt_summary.dart';
@@ -99,9 +101,8 @@ abstract final class ReminderSchedule {
           settings.minute,
         );
         if (!at.isAfter(now)) continue;
-        final heading = offset == 0
-            ? 'วันนี้ถึงวันชำระ'
-            : 'อีก $offset วันถึงวันชำระ';
+        final wording = DebtWording(summary.debt.direction);
+        final heading = wording.reminderHeading(offset);
         result.add(
           ScheduledReminder(
             // Candidate ID identifies month and offset; combine assigns native IDs.
@@ -113,7 +114,7 @@ abstract final class ReminderSchedule {
             title: '$heading${summary.debt.name}',
             body:
                 'ครบกำหนดวันที่ ${due.day}/${due.month}/${due.year + 543} · '
-                'ยอดหนี้คงเหลือ ${Money.format(summary.remaining)} 🌱',
+                '${wording.outstanding} ${Money.format(summary.remaining)} 🌱',
           ),
         );
       }

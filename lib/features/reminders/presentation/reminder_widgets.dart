@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -28,7 +30,7 @@ class ReminderSyncNotice extends ConsumerWidget {
             onPressed: status.busy
                 ? null
                 : () => ref.read(reminderControllerProvider.notifier).refresh(),
-            child: const Text('ลองจัดตารางใหม่'),
+            child: Text('ลองจัดตารางใหม่'),
           ),
         ],
       ),
@@ -39,6 +41,7 @@ class ReminderSyncNotice extends ConsumerWidget {
 class DebtReminderBanner extends ConsumerWidget {
   const DebtReminderBanner({super.key, required this.summary});
   final DebtSummary summary;
+  DebtWording get wording => DebtWording(summary.debt.direction);
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(reminderControllerProvider);
@@ -59,9 +62,9 @@ class DebtReminderBanner extends ConsumerWidget {
         ? AppColors.dueSoon
         : AppColors.text;
     final subtitle = summary.isPaid
-        ? 'ชำระครบแล้ว · หยุดแจ้งเตือน'
+        ? wording.reminderComplete
         : settings == null
-        ? 'เลือกวันชำระและเวลาเตือน'
+        ? wording.reminderChoose
         : !settings.enabled
         ? 'ปิดการแจ้งเตือนอยู่'
         : status.permissionAllowed == false
@@ -73,7 +76,7 @@ class DebtReminderBanner extends ConsumerWidget {
     advance.sort((a, b) => b.compareTo(a));
     final parts = [
       if (advance.isNotEmpty) '${advance.join('/')} วันก่อน',
-      if (settings?.remindOnDueDate ?? false) 'วันชำระ',
+      if (settings?.remindOnDueDate ?? false) wording.reminderDay,
     ];
     final time = settings == null
         ? ''
@@ -117,6 +120,7 @@ class DebtReminderBanner extends ConsumerWidget {
                 context,
                 summary.debt.id,
                 summary.debt.name,
+                direction: summary.debt.direction,
               ),
         borderRadius: BorderRadius.circular(8),
         child: ConstrainedBox(
@@ -146,7 +150,7 @@ class DebtReminderBanner extends ConsumerWidget {
                         Icons.calendar_today_outlined,
                         'ครบกำหนด',
                         summary.isPaid
-                            ? 'ชำระครบแล้ว'
+                            ? wording.complete
                             : days == 0
                             ? 'วันนี้'
                             : 'อีก $days วัน',

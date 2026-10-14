@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,16 +17,23 @@ class ReminderSettingsSheet extends ConsumerStatefulWidget {
     super.key,
     required this.debtId,
     required this.debtName,
+    this.direction = DebtDirection.payable,
   });
   final String debtId, debtName;
+  final DebtDirection direction;
 
   static Future<void> open(
     BuildContext context,
     String debtId,
-    String debtName,
-  ) => showAppSheet<void>(
+    String debtName, {
+    DebtDirection direction = DebtDirection.payable,
+  }) => showAppSheet<void>(
     context,
-    ReminderSettingsSheet(debtId: debtId, debtName: debtName),
+    ReminderSettingsSheet(
+      debtId: debtId,
+      debtName: debtName,
+      direction: direction,
+    ),
   );
 
   @override
@@ -33,6 +42,7 @@ class ReminderSettingsSheet extends ConsumerStatefulWidget {
 }
 
 class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
+  DebtWording get wording => DebtWording(widget.direction);
   int? _day = 1;
   Set<int> _advanceDays = {3};
   TimeOfDay _time = const TimeOfDay(hour: 9, minute: 0);
@@ -142,8 +152,8 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
             AccountContextHeader(debtId: widget.debtId, name: widget.debtName),
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
-              title: const Text('เปิดการแจ้งเตือน'),
-              subtitle: const Text('แจ้งเตือนผ่านโทรศัพท์ของคุณ'),
+              title: Text('เปิดการแจ้งเตือน'),
+              subtitle: Text('แจ้งเตือนผ่านโทรศัพท์ของคุณ'),
               value: _enabled,
               onChanged: _busy ? null : _toggle,
             ),
@@ -167,11 +177,11 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
                         }
                       },
                 icon: const Icon(Icons.settings_outlined),
-                label: const Text('เปิดสิทธิ์ในตั้งค่าของเครื่อง'),
+                label: Text('เปิดสิทธิ์ในตั้งค่าของเครื่อง'),
               ),
             const Divider(height: 24, color: AppColors.border),
-            const Text(
-              'วันครบกำหนดชำระ:',
+            Text(
+              wording.dueDateLabel,
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
@@ -189,7 +199,11 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
               onPressed: _busy
                   ? null
                   : () async {
-                      final day = await DueDaySheet.open(context, _day);
+                      final day = await DueDaySheet.open(
+                        context,
+                        _day,
+                        direction: widget.direction,
+                      );
                       if (day != null && mounted) setState(() => _day = day);
                     },
               icon: const Icon(Icons.calendar_today_outlined),
@@ -203,7 +217,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text('แจ้งเตือนเมื่อไหร่ (เลือกได้มากกว่า 1)'),
+            Text('แจ้งเตือนเมื่อไหร่ (เลือกได้มากกว่า 1)'),
             const SizedBox(height: 8),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -278,7 +292,7 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
               },
             ),
             const SizedBox(height: 16),
-            const Text('เวลาแจ้งเตือน'),
+            Text('เวลาแจ้งเตือน'),
             const SizedBox(height: 8),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
@@ -312,8 +326,8 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
               ),
             ),
             if (_advanceDays.isEmpty && !_onDueDate)
-              const Text('ไม่ได้เลือกวันเตือน จะบันทึกเฉพาะวันครบกำหนด'),
-            const Text(
+              Text('ไม่ได้เลือกวันเตือน จะบันทึกเฉพาะวันครบกำหนด'),
+            Text(
               'เวลาที่เลือกเป็นเวลาเป้าหมาย การประหยัดแบตเตอรี่อาจทำให้แจ้งเตือนช้าลง',
               style: TextStyle(fontSize: 12),
             ),

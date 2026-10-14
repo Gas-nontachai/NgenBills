@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
@@ -193,10 +195,10 @@ class DebtRepository {
   }) async {
     final clean = name.trim();
     if (clean.isEmpty || clean.length > 100) {
-      throw const AppException('ชื่อหนี้ต้องมี 1–100 ตัวอักษร');
+      throw AppException(DebtWording(direction).nameInvalid);
     }
     if (amountMinor <= 0 || amountMinor > Money.maxMinor) {
-      throw const AppException('ยอดหนี้ไม่ถูกต้อง');
+      throw AppException(DebtWording(direction).amountInvalid);
     }
     if ((note?.length ?? 0) > 500) {
       throw const AppException('หมายเหตุต้องไม่เกิน 500 ตัวอักษร');

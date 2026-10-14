@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -28,6 +30,7 @@ class DebtProgressCard extends ConsumerWidget {
     this.interactive = true,
   });
   final DebtSummary summary;
+  DebtWording get wording => DebtWording(summary.debt.direction);
   final Widget? accountHeader;
   final Widget? accountNavigation;
   final bool interactive;
@@ -43,7 +46,7 @@ class DebtProgressCard extends ConsumerWidget {
             final menu = SizedBox(
               width: 32,
               child: PopupMenuButton<String>(
-                tooltip: interactive ? 'เมนูหนี้' : null,
+                tooltip: interactive ? wording.accountMenu : null,
                 position: PopupMenuPosition.under,
                 offset: const Offset(0, 8),
                 constraints: const BoxConstraints(minWidth: 280, maxWidth: 320),
@@ -69,17 +72,18 @@ class DebtProgressCard extends ConsumerWidget {
                         context,
                         summary.debt.id,
                         summary.debt.name,
+                        direction: summary.debt.direction,
                       );
                   }
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'borrow',
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     child: _AccountMenuAction(
                       icon: Icons.add_rounded,
-                      title: 'กู้เพิ่ม',
-                      subtitle: 'เพิ่มยอดหนี้และบันทึกประวัติ',
+                      title: wording.borrowing,
+                      subtitle: wording.borrowingMenuHelp,
                       prominent: true,
                     ),
                   ),
@@ -89,7 +93,7 @@ class DebtProgressCard extends ConsumerWidget {
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Divider(height: 9, color: AppColors.border),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'customize',
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     child: _AccountMenuAction(
@@ -110,7 +114,7 @@ class DebtProgressCard extends ConsumerWidget {
                     child: _AccountMenuAction(
                       icon: Icons.notifications_none_rounded,
                       title: 'ตั้งค่าการแจ้งเตือน',
-                      subtitle: 'จัดการเตือนวันชำระ',
+                      subtitle: wording.reminderMenuHelp,
                       enabled:
                           !ref.watch(reminderControllerProvider).busy &&
                           !ref.watch(reminderControllerProvider).loadError,
@@ -171,13 +175,14 @@ class DebtProgressCard extends ConsumerWidget {
         const SizedBox(height: 16),
         HalfDonutChart(
           progress: summary.progress,
+          direction: summary.debt.direction,
           center: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 summary.isPaid
-                    ? 'ชำระครบแล้ว! 🎉'
-                    : 'ชำระแล้ว ${summary.progressLabel}%',
+                    ? wording.completeCelebration
+                    : wording.progressPercent(summary.progressLabel),
                 style: AppTypography.small.copyWith(color: AppColors.text),
               ),
               const SizedBox(height: 6),
@@ -189,20 +194,24 @@ class DebtProgressCard extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 summary.borrowings.isEmpty
-                    ? 'จากยอดเริ่มต้น ${Money.format(summary.debt.initialAmountMinor)}'
-                    : 'จากยอดหนี้รวม ${Money.format(summary.totalDebt)}',
+                    ? '${wording.initialSummary} ${Money.format(summary.debt.initialAmountMinor)}'
+                    : '${wording.fromTotal} ${Money.format(summary.totalDebt)}',
                 style: AppTypography.small,
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-        DebtSummaryRow(paid: summary.totalPaid, remaining: summary.remaining),
+        DebtSummaryRow(
+          paid: summary.totalPaid,
+          remaining: summary.remaining,
+          direction: summary.debt.direction,
+        ),
         const SizedBox(height: 12),
         DebtReminderBanner(summary: summary),
         if (summary.isPaid) ...[
           const SizedBox(height: 20),
-          const FullyPaidMessage(),
+          FullyPaidMessage(direction: summary.debt.direction),
         ],
       ],
     ),

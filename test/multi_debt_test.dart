@@ -239,6 +239,75 @@ void main() {
     return container;
   }
 
+  testWidgets('Carousel fits the settled card after leaving a taller account', (
+    tester,
+  ) async {
+    var selected = 'tall';
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 350,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return Column(
+                  children: [
+                    AccountSwipeCard(
+                      accountIds: const ['tall', 'short'],
+                      selectedId: selected,
+                      enabled: true,
+                      onSelect: (id) async => update(() => selected = id),
+                      onCreate: () {},
+                      itemBuilder: (_, index, _) => SizedBox(
+                        height: index == 0 ? 400 : 240,
+                        child: Text('Account $index'),
+                      ),
+                    ),
+                    const Text('Details', key: ValueKey('below-carousel')),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(412, .1),
+    );
+    await tester.drag(find.byType(PageView), const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(selected, 'short');
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(252, .1),
+    );
+    final card = tester.getRect(
+      find.byKey(const ValueKey('active-account-card')),
+    );
+    final details = tester.getRect(
+      find.byKey(const ValueKey('below-carousel')),
+    );
+    expect(details.top - card.bottom, closeTo(12, .1));
+    update(() => selected = 'tall');
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(412, .1),
+    );
+    update(() => selected = 'short');
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSize(find.byType(AccountSwipeCard)).height,
+      closeTo(252, .1),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Carousel updates its last-page boundary without remounting or disabling',
     (tester) async {

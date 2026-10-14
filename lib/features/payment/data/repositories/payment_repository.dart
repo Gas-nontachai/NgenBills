@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
@@ -48,7 +50,9 @@ class PaymentRepository {
           (totals.first['paid'] as int);
       if (amountMinor > remaining) {
         throw AppException(
-          'จำนวนเงินเกินยอดคงเหลือ ${Money.format(remaining)}',
+          DebtWording(
+            DebtDirection.values.byName(rows.first['direction'] as String),
+          ).overRemaining(Money.format(remaining)),
         );
       }
       final now = DateTime.now().toUtc().toIso8601String();

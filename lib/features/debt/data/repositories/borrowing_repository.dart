@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
@@ -56,7 +58,11 @@ class BorrowingRepository {
           (debts.first['initial_amount_minor'] as int) +
           (borrowed.first['total'] as int);
       if (amountMinor > Money.maxMinor - total) {
-        throw const AppException('ยอดหนี้รวมเกินวงเงินที่รองรับ');
+        throw AppException(
+          DebtWording(
+            DebtDirection.values.byName(debts.first['direction'] as String),
+          ).overflow,
+        );
       }
       final now = DateTime.now().toUtc().toIso8601String();
       await txn.insert('borrowings', {
@@ -137,11 +143,17 @@ class BorrowingRepository {
       final paid = paidRows.single['total'] as int;
       final totalAfter = total - (row['amount_minor'] as int) + amountMinor;
       if (totalAfter > Money.maxMinor) {
-        throw const AppException('ยอดหนี้รวมเกินวงเงินที่รองรับ');
+        throw AppException(
+          DebtWording(
+            DebtDirection.values.byName(debts.first['direction'] as String),
+          ).overflow,
+        );
       }
       if (totalAfter < paid) {
-        throw const AppException(
-          'แก้ไขไม่ได้ เพราะยอดหนี้รวมจะน้อยกว่ายอดที่จ่ายแล้ว',
+        throw AppException(
+          DebtWording(
+            DebtDirection.values.byName(debts.first['direction'] as String),
+          ).cannotEditBorrowing,
         );
       }
 
@@ -195,8 +207,10 @@ class BorrowingRepository {
           (borrowed.first['total'] as int) -
           (row['amount_minor'] as int);
       if (totalAfter < (paid.first['total'] as int)) {
-        throw const AppException(
-          'ลบรายการนี้ไม่ได้ เพราะยอดหนี้รวมจะน้อยกว่ายอดที่จ่ายแล้ว',
+        throw AppException(
+          DebtWording(
+            DebtDirection.values.byName(debts.first['direction'] as String),
+          ).cannotDeleteBorrowing,
         );
       }
       await txn.delete('borrowings', where: 'id = ?', whereArgs: [id]);

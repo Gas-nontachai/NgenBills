@@ -1,3 +1,4 @@
+import '../../domain/services/debt_wording.dart';
 import '../../../../app/theme/app_colors.dart';
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,13 @@ import '../../domain/entities/borrowing.dart';
 import '../sheets/borrowing_detail_sheet.dart';
 
 class BorrowingListItem extends StatelessWidget {
-  const BorrowingListItem({super.key, required this.borrowing});
+  const BorrowingListItem({
+    super.key,
+    required this.borrowing,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final Borrowing borrowing;
   @override
   Widget build(BuildContext context) => AppCard(
@@ -20,7 +27,8 @@ class BorrowingListItem extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () => BorrowingDetailSheet.open(context, borrowing),
+        onTap: () =>
+            BorrowingDetailSheet.open(context, borrowing, direction: direction),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
           child: Row(
@@ -38,7 +46,10 @@ class BorrowingListItem extends StatelessWidget {
                     Row(
                       children: [
                         Flexible(
-                          child: Text('กู้เพิ่ม', style: AppTypography.body),
+                          child: Text(
+                            wording.borrowing,
+                            style: AppTypography.body,
+                          ),
                         ),
                         if (borrowing.isEdited) ...[
                           const SizedBox(width: 6),

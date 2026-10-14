@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/theme/app_colors.dart';
@@ -5,22 +7,34 @@ import '../../../core/widgets/buttons/app_button.dart';
 import '../../../core/widgets/sheets/app_bottom_sheet.dart';
 
 class DueDaySheet extends StatefulWidget {
-  const DueDaySheet({super.key, this.initialDay});
+  const DueDaySheet({
+    super.key,
+    this.direction = DebtDirection.payable,
+    this.initialDay,
+  });
+  final DebtDirection direction;
   final int? initialDay;
 
-  static Future<int?> open(BuildContext context, int? day) =>
-      showAppSheet<int>(context, DueDaySheet(initialDay: day));
+  static Future<int?> open(
+    BuildContext context,
+    int? day, {
+    DebtDirection direction = DebtDirection.payable,
+  }) => showAppSheet<int>(
+    context,
+    DueDaySheet(initialDay: day, direction: direction),
+  );
 
   @override
   State<DueDaySheet> createState() => _DueDaySheetState();
 }
 
 class _DueDaySheetState extends State<DueDaySheet> {
+  DebtWording get wording => DebtWording(widget.direction);
   late int? _day = widget.initialDay;
 
   @override
   Widget build(BuildContext context) => AppBottomSheet(
-    title: 'วันครบกำหนดชำระ',
+    title: wording.dueDate,
     onClose: () => Navigator.pop(context),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,7 +87,7 @@ class _DueDaySheetState extends State<DueDaySheet> {
             color: AppColors.primarySoft,
             borderRadius: BorderRadius.circular(18),
           ),
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.info, color: AppColors.primary),
               SizedBox(width: 12),

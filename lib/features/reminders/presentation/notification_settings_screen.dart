@@ -80,7 +80,7 @@ class _NotificationSettingsScreenState
             title: 'ปิดการแจ้งเตือนทั้งหมด?',
             icon: Icons.notifications_off_outlined,
             message:
-                'จะหยุดการแจ้งเตือนหนี้ทุกบัญชี โดยเก็บวันและเวลาเดิมไว้ '
+                'จะหยุดการแจ้งเตือนทุกบัญชี โดยเก็บวันและเวลาเดิมไว้ '
                 'คุณเปิดเตือนรายบัญชีอีกครั้งได้ภายหลัง '
                 'สิทธิ์แจ้งเตือนของเครื่องจะไม่เปลี่ยน',
             confirmLabel: 'ยืนยันปิดการแจ้งเตือนทั้งหมด',
@@ -141,7 +141,7 @@ class _NotificationSettingsScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'เตือนก่อนวันชำระ',
+                              'เตือนก่อนวันครบกำหนด',
                               style: AppTypography.title.copyWith(fontSize: 16),
                             ),
                             const SizedBox(height: 2),
@@ -252,6 +252,7 @@ class _NotificationSettingsScreenState
                                         context,
                                         debt.id,
                                         debt.name,
+                                        direction: debt.direction,
                                       ),
                               );
                             },

@@ -1,3 +1,4 @@
+import '../../domain/services/debt_wording.dart';
 import '../../../../core/widgets/sheets/history_detail_content.dart';
 import '../../domain/services/debt_summary.dart';
 import 'edit_history_sheet.dart';
@@ -15,22 +16,33 @@ import '../../domain/entities/borrowing.dart';
 import '../providers/debt_providers.dart';
 
 class BorrowingDetailSheet extends StatelessWidget {
-  const BorrowingDetailSheet({super.key, required this.borrowing});
+  const BorrowingDetailSheet({
+    super.key,
+    required this.borrowing,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final Borrowing borrowing;
-  static Future<void> open(BuildContext context, Borrowing borrowing) async {
+  static Future<void> open(
+    BuildContext context,
+    Borrowing borrowing, {
+    DebtDirection direction = DebtDirection.payable,
+  }) async {
     final action = await showAppSheet<String>(
       context,
-      BorrowingDetailSheet(borrowing: borrowing),
+      BorrowingDetailSheet(borrowing: borrowing, direction: direction),
     );
     if (action == 'edit' && context.mounted) {
       await EditHistorySheet.open(
         context,
         DebtHistoryEntry(borrowing: borrowing),
+        direction: direction,
       );
     } else if (action == 'delete' && context.mounted) {
       await showAppSheet<void>(
         context,
-        DeleteBorrowingSheet(borrowing: borrowing),
+        DeleteBorrowingSheet(borrowing: borrowing, direction: direction),
         guarded: true,
       );
     }
@@ -38,7 +50,7 @@ class BorrowingDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppBottomSheet(
-    title: 'รายละเอียดการกู้เพิ่ม',
+    title: wording.borrowingDetail,
     onClose: () => Navigator.pop(context),
     child: HistoryDetailContent(
       amountMinor: borrowing.amountMinor,
@@ -48,7 +60,7 @@ class BorrowingDetailSheet extends StatelessWidget {
       icon: Icons.add_rounded,
       iconColor: const Color(0xFF2673C7),
       iconBackground: const Color(0xFFD9EEF5),
-      deleteLabel: 'ลบรายการกู้เพิ่ม',
+      deleteLabel: wording.deleteBorrowing,
       onEdit: () => Navigator.pop(context, 'edit'),
       onDelete: () => Navigator.pop(context, 'delete'),
     ),
@@ -56,7 +68,12 @@ class BorrowingDetailSheet extends StatelessWidget {
 }
 
 class DeleteBorrowingSheet extends ConsumerStatefulWidget {
-  const DeleteBorrowingSheet({super.key, required this.borrowing});
+  const DeleteBorrowingSheet({
+    super.key,
+    required this.borrowing,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
   final Borrowing borrowing;
   @override
   ConsumerState<DeleteBorrowingSheet> createState() =>
@@ -64,6 +81,7 @@ class DeleteBorrowingSheet extends ConsumerStatefulWidget {
 }
 
 class _DeleteBorrowingSheetState extends ConsumerState<DeleteBorrowingSheet> {
+  DebtWording get wording => DebtWording(widget.direction);
   bool _saving = false;
   Future<void> _delete() async {
     if (_saving) return;
@@ -80,9 +98,7 @@ class _DeleteBorrowingSheetState extends ConsumerState<DeleteBorrowingSheet> {
       if (mounted && saved) {
         AppSnackBar.show(
           context,
-          existed
-              ? 'ลบรายการกู้เพิ่มแล้ว ยอดคงเหลืออัปเดตแล้ว'
-              : 'รายการนี้ถูกลบไปแล้ว',
+          existed ? wording.deleteBorrowingSaved : 'รายการนี้ถูกลบไปแล้ว',
         );
         setState(() => _saving = false);
         await WidgetsBinding.instance.endOfFrame;
@@ -99,9 +115,9 @@ class _DeleteBorrowingSheetState extends ConsumerState<DeleteBorrowingSheet> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
     child: AppConfirmSheet(
-      title: 'ลบรายการกู้เพิ่ม',
-      message: 'ยอดหนี้รวมและยอดคงเหลือจะลดลง\nลบได้เมื่อยอดหนี้รวมยังไม่น้อยกว่ายอดที่จ่ายแล้ว',
-      confirmLabel: 'ลบรายการกู้เพิ่ม',
+      title: wording.deleteBorrowing,
+      message: wording.borrowingDeleteExplanation,
+      confirmLabel: wording.deleteBorrowing,
       isLoading: _saving,
       details: Column(
         children: [

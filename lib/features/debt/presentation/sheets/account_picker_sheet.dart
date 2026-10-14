@@ -6,6 +6,7 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/sheets/app_bottom_sheet.dart';
 import '../../domain/entities/debt.dart';
 import '../widgets/account_avatar.dart';
+import '../widgets/debt_direction_chip.dart';
 
 class AccountPickerResult {
   const AccountPickerResult({this.debtId, this.create = false});
@@ -195,7 +196,9 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
                             scrollController: _scroll,
                             buildDefaultDragHandles: false,
                             onReorderItem: _reorder,
-                            itemExtent: 64,
+                            itemExtent: media.textScaler.scale(14) <= 14
+                                ? 64
+                                : null,
                             itemCount: accounts.length,
                             itemBuilder: (context, index) {
                               final debt = accounts[index];
@@ -236,12 +239,21 @@ class _AccountPickerSheetState extends State<AccountPickerSheet> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: debt.id == widget.defaultId
-                                    ? const Text(
+                                subtitle: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (debt.id == widget.defaultId)
+                                      const Text(
                                         'บัญชีหลัก',
                                         style: AppTypography.caption,
-                                      )
-                                    : null,
+                                      ),
+                                    DebtDirectionChip(
+                                      direction: debt.direction,
+                                    ),
+                                  ],
+                                ),
                                 trailing: Icon(
                                   selected
                                       ? Icons.radio_button_checked

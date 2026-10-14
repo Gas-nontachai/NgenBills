@@ -1,5 +1,15 @@
 import 'package:sqflite/sqflite.dart';
 
+const databaseVersion = 2;
+
+Future<void> upgradeSchema(Database db, int oldVersion, int newVersion) async {
+  if (oldVersion < 2) {
+    await db.execute(
+      "ALTER TABLE debts ADD COLUMN direction TEXT NOT NULL DEFAULT 'payable' CHECK (direction IN ('payable', 'receivable'))",
+    );
+  }
+}
+
 Future<void> createSchema(Database db) async {
   await db.execute("""CREATE TABLE debts (
     id TEXT PRIMARY KEY NOT NULL,
@@ -7,6 +17,7 @@ Future<void> createSchema(Database db) async {
     initial_amount_minor INTEGER NOT NULL CHECK(initial_amount_minor > 0 AND initial_amount_minor <= 99999999999999),
     icon_key TEXT NOT NULL DEFAULT 'wallet',
     color_key TEXT NOT NULL DEFAULT 'green',
+    direction TEXT NOT NULL DEFAULT 'payable' CHECK (direction IN ('payable', 'receivable')),
     note TEXT CHECK(note IS NULL OR length(note) <= 500),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

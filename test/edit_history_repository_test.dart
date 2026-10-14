@@ -196,12 +196,12 @@ void main() {
     expect((await debts.load(debtId))!.payments.single.isEdited, false);
   });
 
-  test('Initial schema remains version 1 with unedited defaults', () async {
+  test('Current schema has version 2 with unedited defaults', () async {
     final summary = (await debts.load(debtId))!;
     expect(summary.payments.single.isEdited, false);
     expect(summary.borrowings.single.isEdited, false);
     final db = await database.instance;
-    expect(await db.getVersion(), 1);
+    expect(await db.getVersion(), 2);
     expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
   });
 }

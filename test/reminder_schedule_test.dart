@@ -20,6 +20,62 @@ DebtSummary reminderDebt() => DebtSummary(
 
 void main() {
   setUpAll(tzdata.initializeTimeZones);
+  test('Receivable copy changes while IDs, times, count and completion behavior stay the same', () {
+    final now = tz.TZDateTime(tz.getLocation('Asia/Bangkok'), 2026, 10, 8);
+    const settings = ReminderSettings(
+      debtId: 'debt',
+      dueDay: 27,
+      enabled: true,
+    );
+    final payable = reminderDebt();
+    final receivable = DebtSummary(
+      Debt(
+        id: payable.debt.id,
+        name: payable.debt.name,
+        initialAmountMinor: payable.debt.initialAmountMinor,
+        direction: DebtDirection.receivable,
+        createdAt: payable.debt.createdAt,
+        updatedAt: payable.debt.updatedAt,
+      ),
+      [],
+    );
+    final original = ReminderSchedule.build(
+      summary: payable,
+      settings: settings,
+      now: now,
+    );
+    final updated = ReminderSchedule.build(
+      summary: receivable,
+      settings: settings,
+      now: now,
+    );
+    expect(updated.map((r) => r.id), original.map((r) => r.id));
+    expect(updated.map((r) => r.at), original.map((r) => r.at));
+    expect(updated.map((r) => r.daysBefore), original.map((r) => r.daysBefore));
+    expect(updated.first.title, contains('อีก 3 วันถึงวันรับเงินคืน'));
+    expect(updated.first.body, contains('ยอดรอรับคืน ฿10,000'));
+    expect(
+      updated.firstWhere((r) => r.daysBefore == 0).title,
+      contains('วันนี้ถึงวันรับเงินคืน'),
+    );
+    expect(
+      ReminderSchedule.build(
+        summary: DebtSummary(receivable.debt, [
+          Payment(
+            id: 'paid',
+            debtId: 'debt',
+            amountMinor: 1000000,
+            date: DateTime(2026),
+            createdAt: DateTime(2026),
+          ),
+        ]),
+        settings: settings,
+        now: now,
+      ),
+      isEmpty,
+    );
+  });
+
   test(
     '24 calendar months, two unique stable IDs per month and selected minute',
     () {

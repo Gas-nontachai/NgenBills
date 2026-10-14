@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/database/app_database.dart';
@@ -48,10 +50,20 @@ class PaymentRepository {
           (totals.first['paid'] as int);
       if (amountMinor > remaining) {
         throw AppException(
-          'จำนวนเงินเกินยอดคงเหลือ ${Money.format(remaining)}',
+          DebtWording(
+            DebtDirection.values.byName(rows.first['direction'] as String),
+          ).overRemaining(Money.format(remaining)),
         );
       }
       final now = DateTime.now().toUtc().toIso8601String();
+      if (amountMinor == remaining) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
+        );
+      }
       await txn.insert('payments', {
         'id': const Uuid().v4(),
         'debt_id': debtId,
@@ -131,6 +143,14 @@ class PaymentRepository {
         );
       }
 
+      if (amountMinor == limit) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
+        );
+      }
       final now = DateTime.now().toUtc().toIso8601String();
       await txn.update(
         'payments',

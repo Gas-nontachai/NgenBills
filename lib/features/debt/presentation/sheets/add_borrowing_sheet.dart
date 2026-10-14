@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,7 +34,10 @@ class AddBorrowingSheet extends ConsumerStatefulWidget {
     if (receipt != null && navigator.mounted) {
       await showAppSheet<void>(
         navigator.context,
-        BorrowingSuccessSheet(receipt: receipt),
+        BorrowingSuccessSheet(
+          receipt: receipt,
+          direction: summary.debt.direction,
+        ),
       );
     }
   }
@@ -42,6 +47,7 @@ class AddBorrowingSheet extends ConsumerStatefulWidget {
 }
 
 class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
+  DebtWording get wording => DebtWording(widget.summary.debt.direction);
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController(), _note = TextEditingController();
   DateTime _today() {
@@ -60,7 +66,7 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
     final error = Money.validate(value);
     if (error != null) return error;
     if (Money.parse(value!)! > Money.maxMinor - widget.summary.totalDebt) {
-      return 'ยอดหนี้รวมเกินวงเงินที่รองรับ';
+      return wording.overflow;
     }
     return null;
   }
@@ -78,7 +84,7 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
       initialDate: _date,
       firstDate: DateTime(1900),
       lastDate: _today(),
-      helpText: 'เลือกวันที่กู้เพิ่ม',
+      helpText: wording.pickBorrowingDate,
       cancelText: 'ยกเลิก',
       confirmText: 'ยืนยัน',
     );
@@ -113,7 +119,7 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
 
   @override
   Widget build(BuildContext context) => guardedSheet(
-    title: 'กู้เพิ่ม',
+    title: wording.borrowing,
     child: Form(
       key: _form,
       child: Column(
@@ -128,10 +134,7 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'ยอดหนี้คงเหลือปัจจุบัน',
-                  style: AppTypography.small,
-                ),
+                Text(wording.currentOutstanding, style: AppTypography.small),
                 Text(
                   Money.format(widget.summary.remaining),
                   style: AppTypography.h1,
@@ -141,14 +144,14 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
           ),
           const SizedBox(height: 20),
           AppAmountField(
-            label: 'จำนวนเงินที่กู้เพิ่ม (บาท)',
+            label: wording.borrowingAmount,
             controller: _amount,
             validator: _validateAmount,
             enabled: !saving,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 20),
-          const Text('วันที่กู้เพิ่ม', style: AppTypography.body),
+          Text(wording.borrowingDate, style: AppTypography.body),
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: saving ? null : _pickDate,
@@ -167,13 +170,13 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
             maxLength: 500,
             showCharacterCounter: true,
             maxLines: 2,
-            hint: 'เช่น กู้เพิ่มเพื่อซ่อมรถ',
+            hint: wording.borrowingHint,
             enabled: !saving,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 20),
           AppButton(
-            label: 'บันทึกการกู้เพิ่ม',
+            label: wording.saveBorrowing,
             onPressed: _valid && !ref.watch(paymentActionProvider)
                 ? _save
                 : null,
@@ -186,7 +189,13 @@ class _AddBorrowingSheetState extends GuardedFormState<AddBorrowingSheet> {
 }
 
 class BorrowingSuccessSheet extends StatelessWidget {
-  const BorrowingSuccessSheet({super.key, required this.receipt});
+  const BorrowingSuccessSheet({
+    super.key,
+    required this.receipt,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final BorrowingReceipt receipt;
   @override
   Widget build(BuildContext context) => AppBottomSheet(
@@ -206,8 +215,8 @@ class BorrowingSuccessSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        const Text(
-          'บันทึกการกู้เพิ่มแล้ว',
+        Text(
+          wording.borrowingSaved,
           style: AppTypography.h2,
           textAlign: TextAlign.center,
         ),
@@ -221,7 +230,7 @@ class BorrowingSuccessSheet extends StatelessWidget {
           color: AppColors.primarySoft,
           child: Column(
             children: [
-              const Text('ยอดหนี้คงเหลือใหม่', style: AppTypography.small),
+              Text(wording.newOutstanding, style: AppTypography.small),
               Text(Money.format(receipt.remaining), style: AppTypography.h1),
               Text(
                 'จากเดิม ${Money.format(receipt.previousRemaining)}',
@@ -231,8 +240,8 @@ class BorrowingSuccessSheet extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'รายการนี้ถูกบันทึกในประวัติรายการในฐานะ “กู้เพิ่ม”',
+        Text(
+          wording.borrowingHistoryNotice,
           style: AppTypography.small,
           textAlign: TextAlign.center,
         ),

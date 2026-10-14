@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/database/schema.dart';
 import '../../../core/errors/app_exception.dart';
 import '../../../core/formatters/currency_formatter.dart';
 import '../../debt/domain/entities/account_appearance.dart';
@@ -22,7 +23,7 @@ class BackupService {
   final AppDatabase database;
 
   static const formatVersion = 1;
-  static const schemaVersion = 1;
+  static const schemaVersion = databaseVersion;
   static const maxFileBytes = 32 * 1024 * 1024;
   static const _columns = {
     'debts': {
@@ -31,6 +32,7 @@ class BackupService {
       'initial_amount_minor',
       'icon_key',
       'color_key',
+      'direction',
       'note',
       'created_at',
       'updated_at',
@@ -103,11 +105,13 @@ class BackupService {
       if (document['formatVersion'] is! int ||
           document['schemaVersion'] is! int ||
           document['formatVersion'] != formatVersion ||
-          document['schemaVersion'] != schemaVersion) {
+          (document['schemaVersion'] != 1 &&
+              document['schemaVersion'] != schemaVersion)) {
         throw const AppException(
           'ไม่รองรับเวอร์ชันไฟล์สำรองนี้ กรุณาใช้แอปเวอร์ชันที่ตรงกัน',
         );
       }
+      final legacy = document['schemaVersion'] == 1;
       final createdAt = _timestamp(document['createdAt']);
       final data = _map(document['data']);
       _check(_sameKeys(data.keys, _columns.keys));
@@ -119,7 +123,11 @@ class BackupService {
         final rows = <Map<String, Object?>>[];
         for (final value in raw as List) {
           final row = _map(value);
-          _check(_sameKeys(row.keys, entry.value));
+          final expected = legacy && entry.key == 'debts'
+              ? entry.value.difference({'direction'})
+              : entry.value;
+          _check(_sameKeys(row.keys, expected));
+          if (legacy && entry.key == 'debts') row['direction'] = 'payable';
           final idKey = entry.key == 'app_preferences'
               ? 'key'
               : entry.key == 'reminder_settings'
@@ -198,6 +206,7 @@ class BackupService {
       _integer(row['initial_amount_minor'], 1, Money.maxMinor);
       _check(AccountAppearance.iconKeys.contains(row['icon_key']));
       _check(AccountAppearance.colorKeys.contains(row['color_key']));
+      _check(row['direction'] == 'payable' || row['direction'] == 'receivable');
       _timestamp(row['updated_at']);
     } else {
       _integer(row['is_edited'], 0, 1);

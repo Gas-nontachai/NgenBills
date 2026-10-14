@@ -68,6 +68,7 @@ class _Debts extends DebtRepository {
       note: old.note,
       iconKey: iconKey,
       colorKey: colorKey,
+      direction: old.direction,
       createdAt: old.createdAt,
       updatedAt: DateTime.now().toUtc(),
     );

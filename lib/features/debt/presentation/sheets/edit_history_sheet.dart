@@ -1,3 +1,5 @@
+import '../../domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,23 +18,33 @@ import '../widgets/account_context_header.dart';
 
 /// Loads the target account afresh; the repository rechecks all limits on save.
 class EditHistorySheet extends ConsumerStatefulWidget {
-  const EditHistorySheet({super.key, required this.entry});
+  const EditHistorySheet({
+    super.key,
+    required this.entry,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
   final DebtHistoryEntry entry;
 
-  static Future<void> open(BuildContext context, DebtHistoryEntry entry) =>
-      showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        enableDrag: false,
-        builder: (_) => EditHistorySheet(entry: entry),
-      );
+  static Future<void> open(
+    BuildContext context,
+    DebtHistoryEntry entry, {
+    DebtDirection direction = DebtDirection.payable,
+  }) => showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    enableDrag: false,
+    builder: (_) => EditHistorySheet(entry: entry, direction: direction),
+  );
 
   @override
   ConsumerState<EditHistorySheet> createState() => _EditHistorySheetState();
 }
 
 class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
+  late DebtDirection _direction = widget.direction;
+  DebtWording get wording => DebtWording(_direction);
   final _form = GlobalKey<FormState>();
   final _amount = TextEditingController(), _note = TextEditingController();
   late DateTime _date;
@@ -63,6 +75,9 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
     if (matches.isEmpty) {
       throw const AppException('ไม่พบรายการนี้ อาจถูกลบไปแล้ว');
     }
+    if (mounted && _direction != summary.debt.direction) {
+      setState(() => _direction = summary.debt.direction);
+    }
     _original = matches.single;
     if (!mounted) return summary;
     _amount.text = Money.input(_value(_original!));
@@ -89,9 +104,9 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
       }
     } else {
       final total = summary.totalDebt - _value(_original!) + amount;
-      if (total > Money.maxMinor) return 'ยอดหนี้รวมเกินวงเงินที่รองรับ';
+      if (total > Money.maxMinor) return wording.overflow;
       if (total < summary.totalPaid) {
-        return 'ยอดหนี้รวมต้องไม่น้อยกว่ายอดที่จ่ายแล้ว';
+        return wording.belowPaid;
       }
     }
     return null;
@@ -103,7 +118,7 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
       initialDate: _date,
       firstDate: DateTime(1900),
       lastDate: AppDates.today(),
-      helpText: _payment ? 'เลือกวันที่จ่าย' : 'เลือกวันที่กู้เพิ่ม',
+      helpText: _payment ? wording.pickPaymentDate : wording.pickBorrowingDate,
       cancelText: 'ยกเลิก',
       confirmText: 'ยืนยัน',
     );
@@ -138,7 +153,7 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
             );
       });
       if (mounted && saved) {
-        AppSnackBar.show(context, 'บันทึกการแก้ไขแล้ว ยอดคงเหลืออัปเดตแล้ว');
+        AppSnackBar.show(context, wording.editSaved);
         await finish();
       }
     } catch (error) {
@@ -157,14 +172,14 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
 
   @override
   Widget build(BuildContext context) => guardedSheet(
-    title: _payment ? 'แก้ไขรายการจ่าย' : 'แก้ไขรายการกู้เพิ่ม',
+    title: _payment ? wording.editPayment : wording.editBorrowing,
     child: FutureBuilder<DebtSummary>(
       future: _summary,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Column(
             children: [
-              const Text('โหลดรายการไม่สำเร็จ'),
+              Text('โหลดรายการไม่สำเร็จ'),
               Text(
                 snapshot.error is AppException
                     ? (snapshot.error as AppException).message
@@ -172,7 +187,7 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
               ),
               TextButton(
                 onPressed: () => setState(() => _summary = _load()),
-                child: const Text('ลองใหม่'),
+                child: Text('ลองใหม่'),
               ),
             ],
           );
@@ -193,8 +208,8 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
               AccountContextHeader(debtId: _debtId, name: summary.debt.name),
               AppAmountField(
                 label: _payment
-                    ? 'จำนวนเงินที่จ่าย (บาท)'
-                    : 'จำนวนเงินที่กู้เพิ่ม (บาท)',
+                    ? wording.paymentAmountBaht
+                    : wording.borrowingAmount,
                 controller: _amount,
                 validator: (v) => _validateAmount(v, summary),
                 enabled: !saving,
@@ -202,7 +217,7 @@ class _EditHistorySheetState extends GuardedFormState<EditHistorySheet> {
               ),
               const SizedBox(height: 20),
               Text(
-                _payment ? 'วันที่จ่าย' : 'วันที่กู้เพิ่ม',
+                _payment ? wording.paymentDate : wording.borrowingDate,
                 style: AppTypography.body,
               ),
               const SizedBox(height: 8),

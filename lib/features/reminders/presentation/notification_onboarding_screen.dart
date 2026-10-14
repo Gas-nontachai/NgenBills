@@ -1,3 +1,5 @@
+import '../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,13 +11,18 @@ import '../../../core/widgets/feedback/app_snackbar.dart';
 import 'reminder_providers.dart';
 
 class NotificationOnboardingScreen extends ConsumerStatefulWidget {
-  const NotificationOnboardingScreen({super.key});
+  const NotificationOnboardingScreen({
+    super.key,
+    this.direction = DebtDirection.payable,
+  });
+  final DebtDirection direction;
   @override
   ConsumerState<NotificationOnboardingScreen> createState() =>
       _OnboardingState();
 }
 
 class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
+  DebtWording get wording => DebtWording(widget.direction);
   bool _busy = false;
   Future<void> _finish(bool enable) async {
     setState(() => _busy = true);
@@ -23,6 +30,7 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context, rootNavigator: true);
     final container = ProviderScope.containerOf(context);
+    final successMessage = wording.onboardingSuccess;
     try {
       await ref
           .read(reminderControllerProvider.notifier)
@@ -35,12 +43,12 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
             canPop: false,
             child: AlertDialog(
               scrollable: true,
-              title: const Text(
+              title: Text(
                 'ยินดีด้วย! 🎉',
                 style: AppTypography.h2,
                 textAlign: TextAlign.center,
               ),
-              content: const Column(
+              content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
@@ -50,8 +58,7 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
                   ),
                   SizedBox(height: 20),
                   Text(
-                    'คุณเริ่มต้นจัดการหนี้ก้อนแรกแล้ว\n'
-                    'ก้าวแรกสำเร็จแล้ว มาค่อย ๆ ไปด้วยกันนะ 🌱',
+                    successMessage,
                     style: AppTypography.body,
                     textAlign: TextAlign.center,
                   ),
@@ -108,24 +115,24 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                const Text(
+                Text(
                   'ให้เงินบิล\nช่วยเตือนนะ',
                   textAlign: TextAlign.center,
                   style: AppTypography.h1,
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'ไม่ต้องจำวันจ่ายหนี้ด้วยตัวเอง\nเราจะคอยเตือนคุณเมื่อใกล้ถึงวันครบกำหนด',
+                Text(
+                  wording.onboardingHelp,
                   textAlign: TextAlign.center,
                   style: AppTypography.body,
                 ),
                 const SizedBox(height: 26),
-                const AppCard(
+                AppCard(
                   child: Column(
                     children: [
                       ListTile(
                         leading: Icon(Icons.calendar_today_outlined),
-                        title: Text('ไม่พลาดวันจ่ายหนี้'),
+                        title: Text(wording.onboardingBenefit),
                       ),
                       ListTile(
                         leading: Icon(Icons.schedule),
@@ -146,7 +153,7 @@ class _OnboardingState extends ConsumerState<NotificationOnboardingScreen> {
                 ),
                 TextButton(
                   onPressed: _busy ? null : () => _finish(false),
-                  child: const Text('ไว้ทีหลัง'),
+                  child: Text('ไว้ทีหลัง'),
                 ),
               ],
             ),

@@ -1,3 +1,5 @@
+import '../../../debt/domain/services/debt_wording.dart';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/app_colors.dart';
@@ -11,6 +13,7 @@ import '../../../../core/widgets/inputs/app_text_field.dart';
 class PaymentForm extends StatelessWidget {
   const PaymentForm({
     super.key,
+    this.direction = DebtDirection.payable,
     required this.formKey,
     required this.amount,
     required this.note,
@@ -22,6 +25,8 @@ class PaymentForm extends StatelessWidget {
     required this.saving,
     required this.valid,
   });
+  final DebtDirection direction;
+  DebtWording get wording => DebtWording(direction);
   final GlobalKey<FormState> formKey;
   final TextEditingController amount, note;
   final int remaining;
@@ -41,19 +46,22 @@ class PaymentForm extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text(
-          'ทุกยอดที่จ่าย คืออีกก้าวที่ใกล้เป้าหมาย',
-          style: AppTypography.small,
-        ),
+        Text(wording.paymentHelp, style: AppTypography.small),
         const SizedBox(height: 4),
         Text(
-          'ยอดคงเหลือ ${Money.format(remaining)}',
+          '${wording.remainingAmount} ${Money.format(remaining)}',
           style: AppTypography.small.copyWith(color: AppColors.primaryDark),
         ),
         const SizedBox(height: 20),
         AppAmountField(
           controller: amount,
           remaining: remaining,
+          validator: (value) {
+            final error = Money.validate(value, remaining: remaining);
+            return error != null && (Money.parse(value ?? '') ?? 0) > remaining
+                ? wording.overRemaining(Money.format(remaining))
+                : error;
+          },
           autofocus: true,
           enabled: !saving,
           onChanged: (_) => onChange(),
@@ -78,7 +86,7 @@ class PaymentForm extends StatelessWidget {
               .toList(),
         ),
         const SizedBox(height: 20),
-        const Text('วันที่จ่าย', style: AppTypography.body),
+        Text(wording.paymentDate, style: AppTypography.body),
         const SizedBox(height: 8),
         OutlinedButton(
           onPressed: saving ? null : onDate,
@@ -104,10 +112,7 @@ class PaymentForm extends StatelessWidget {
         ExpansionTile(
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(bottom: 16),
-          title: const Text(
-            'เพิ่มหมายเหตุ (ไม่บังคับ)',
-            style: AppTypography.small,
-          ),
+          title: Text('เพิ่มหมายเหตุ (ไม่บังคับ)', style: AppTypography.small),
           children: [
             AppTextField(
               label: 'หมายเหตุ',
@@ -115,7 +120,7 @@ class PaymentForm extends StatelessWidget {
               maxLength: 500,
               showCharacterCounter: true,
               maxLines: 2,
-              hint: 'เช่น จ่ายผ่านแอปธนาคาร',
+              hint: wording.paymentHint,
               enabled: !saving,
               onChanged: (_) => onChange(),
             ),
@@ -123,7 +128,7 @@ class PaymentForm extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         AppButton(
-          label: 'บันทึกการจ่าย',
+          label: wording.savePayment,
           onPressed: valid ? onSave : null,
           isLoading: saving,
         ),

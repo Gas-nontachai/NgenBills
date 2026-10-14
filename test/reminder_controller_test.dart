@@ -42,6 +42,44 @@ void main() {
   ReminderSettings settings({int day = 27, int hour = 9}) =>
       ReminderSettings(debtId: debtId, dueDay: day, enabled: true, hour: hour);
 
+  test('Completing and reopening before sync leaves reminders disabled with dates preserved', () async {
+    await controller.save(settings(day: 12, hour: 14));
+    await container
+        .read(paymentRepositoryProvider)
+        .add(debtId: debtId, amountMinor: 1000000, date: DateTime(2026, 1, 1));
+    await container
+        .read(borrowingRepositoryProvider)
+        .add(debtId: debtId, amountMinor: 100000, date: DateTime(2026, 1, 1));
+    await controller.refresh();
+    final stored = (await container
+        .read(reminderRepositoryProvider)
+        .load(debtId))!;
+    expect(stored.enabled, false);
+    expect(stored.dueDay, 12);
+    expect(stored.hour, 14);
+    expect(service.pending, isEmpty);
+    await controller.save(stored.withEnabled(true));
+    expect(service.pending, isNotEmpty);
+  });
+
+  test('Sync disables legacy completed settings and save cannot re-enable completed accounts', () async {
+    await container
+        .read(paymentRepositoryProvider)
+        .add(debtId: debtId, amountMinor: 1000000, date: DateTime(2026, 1, 1));
+    await container.read(reminderRepositoryProvider).save(settings());
+    await controller.refresh();
+    expect(
+      (await container.read(reminderRepositoryProvider).load(debtId))!.enabled,
+      false,
+    );
+    await controller.save(settings(day: 20));
+    expect(
+      (await container.read(reminderRepositoryProvider).load(debtId))!.enabled,
+      false,
+    );
+    expect(service.pending, isEmpty);
+  });
+
   test(
     'Editing payments and borrowings reconciles payoff and reopening',
     () async {
@@ -72,6 +110,13 @@ void main() {
                 payments.update(id: paymentId, amountMinor: 900000, date: date),
           );
       await controller.refresh();
+      expect(service.pending, isEmpty);
+      final stored = (await container
+          .read(reminderRepositoryProvider)
+          .load(debtId))!;
+      expect(stored.enabled, false);
+      expect(stored.dueDay, 27);
+      await controller.save(settings());
       expect(service.pending, isNotEmpty);
       await borrowings.add(debtId: debtId, amountMinor: 100000, date: date);
       await payments.update(id: paymentId, amountMinor: 1100000, date: date);
@@ -91,6 +136,8 @@ void main() {
             ),
           );
       await controller.refresh();
+      expect(service.pending, isEmpty);
+      await controller.save(settings());
       expect(service.pending, isNotEmpty);
       await container
           .read(paymentActionProvider.notifier)
@@ -123,38 +170,37 @@ void main() {
     },
   );
 
-  test(
-    'Partial payment updates amounts, full payment cancels, deletion restores',
-    () async {
-      await controller.save(settings());
-      expect(service.pending, hasLength(48));
-      expect(service.pending.first.body, contains('฿10,000'));
-      final payments = container.read(paymentRepositoryProvider);
-      await payments.add(
-        debtId: debtId,
-        amountMinor: 300000,
-        date: DateTime(2026, 10, 8),
-      );
-      await controller.refresh();
-      expect(service.pending.first.body, contains('฿7,000'));
-      expect(service.pending, hasLength(48));
-      await payments.add(
-        debtId: debtId,
-        amountMinor: 700000,
-        date: DateTime(2026, 10, 8),
-      );
-      await controller.refresh();
-      expect(service.pending, isEmpty);
-      final payment =
-          (await container.read(debtRepositoryProvider).load())!.payments.first;
-      await payments.delete(payment.id);
-      await controller.refresh();
-      expect(service.pending, isNotEmpty);
-      expect(service.pending.first.body, contains('ยอดหนี้คงเหลือ'));
-    },
-  );
+  test('Full payment stops reminders; deleting a payment requires manual re-enable', () async {
+    await controller.save(settings());
+    expect(service.pending, hasLength(48));
+    expect(service.pending.first.body, contains('฿10,000'));
+    final payments = container.read(paymentRepositoryProvider);
+    await payments.add(
+      debtId: debtId,
+      amountMinor: 300000,
+      date: DateTime(2026, 10, 8),
+    );
+    await controller.refresh();
+    expect(service.pending.first.body, contains('฿7,000'));
+    expect(service.pending, hasLength(48));
+    await payments.add(
+      debtId: debtId,
+      amountMinor: 700000,
+      date: DateTime(2026, 10, 8),
+    );
+    await controller.refresh();
+    expect(service.pending, isEmpty);
+    final payment =
+        (await container.read(debtRepositoryProvider).load())!.payments.first;
+    await payments.delete(payment.id);
+    await controller.refresh();
+    expect(service.pending, isEmpty);
+    await controller.save(settings());
+    expect(service.pending, isNotEmpty);
+    expect(service.pending.first.body, contains('ยอดหนี้คงเหลือ'));
+  });
 
-  test('Borrowing after payoff restarts reminders and deleting account cancels them', () async {
+  test('Borrowing after payoff requires manual re-enable; deletion cancels reminders', () async {
     await controller.completeOnboarding(enable: false);
     await controller.save(settings());
     await container
@@ -166,6 +212,8 @@ void main() {
         .read(borrowingRepositoryProvider)
         .add(debtId: debtId, amountMinor: 500000, date: DateTime(2026, 10, 8));
     await controller.refresh();
+    expect(service.pending, isEmpty);
+    await controller.save(settings());
     expect(service.pending, isNotEmpty);
     expect(service.pending.first.body, contains('฿5,000'));
     await container

@@ -11,6 +11,7 @@ import 'reminder_providers.dart';
 import 'due_day_sheet.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../debt/presentation/widgets/account_context_header.dart';
+import '../../debt/presentation/providers/debt_providers.dart';
 
 class ReminderSettingsSheet extends ConsumerStatefulWidget {
   const ReminderSettingsSheet({
@@ -141,6 +142,17 @@ class _ReminderSettingsSheetState extends ConsumerState<ReminderSettingsSheet> {
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(reminderControllerProvider);
+    final summary = ref.watch(debtSummaryByIdProvider(widget.debtId)).value;
+    if (summary?.isPaid == true) {
+      return PopScope(
+        canPop: !_busy,
+        child: AppBottomSheet(
+          title: 'การแจ้งเตือน',
+          onClose: _busy ? null : () => Navigator.pop(context),
+          child: Text(DebtWording(summary!.debt.direction).reminderComplete),
+        ),
+      );
+    }
     return PopScope(
       canPop: !_busy,
       child: AppBottomSheet(

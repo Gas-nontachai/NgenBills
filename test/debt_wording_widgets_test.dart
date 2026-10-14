@@ -160,6 +160,16 @@ void main() {
           findsOneWidget,
         );
         expect(find.text('เก่งมากเลย! 🌱'), findsNothing);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('active-account-card')),
+            matching: find.text('ตั้งวันครบกำหนดและแจ้งเตือน'),
+          ),
+          findsNothing,
+        );
+        await tester.tap(find.byTooltip('เมนูบัญชีให้ยืม'));
+        await tester.pumpAndSettle();
+        expect(find.text('ตั้งค่าการแจ้งเตือน'), findsNothing);
         semantics.dispose();
         expect(tester.takeException(), isNull);
       });

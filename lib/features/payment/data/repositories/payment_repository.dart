@@ -56,6 +56,14 @@ class PaymentRepository {
         );
       }
       final now = DateTime.now().toUtc().toIso8601String();
+      if (amountMinor == remaining) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
+        );
+      }
       await txn.insert('payments', {
         'id': const Uuid().v4(),
         'debt_id': debtId,
@@ -135,6 +143,14 @@ class PaymentRepository {
         );
       }
 
+      if (amountMinor == limit) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
+        );
+      }
       final now = DateTime.now().toUtc().toIso8601String();
       await txn.update(
         'payments',

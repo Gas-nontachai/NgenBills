@@ -157,6 +157,14 @@ class BorrowingRepository {
         );
       }
 
+      if (totalAfter == paid) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
+        );
+      }
       final now = DateTime.now().toUtc().toIso8601String();
       await txn.update(
         'borrowings',
@@ -211,6 +219,14 @@ class BorrowingRepository {
           DebtWording(
             DebtDirection.values.byName(debts.first['direction'] as String),
           ).cannotDeleteBorrowing,
+        );
+      }
+      if (totalAfter == (paid.first['total'] as int)) {
+        await txn.update(
+          'reminder_settings',
+          {'enabled': 0},
+          where: 'debt_id = ?',
+          whereArgs: [debtId],
         );
       }
       await txn.delete('borrowings', where: 'id = ?', whereArgs: [id]);

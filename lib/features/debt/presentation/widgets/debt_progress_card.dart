@@ -102,24 +102,25 @@ class DebtProgressCard extends ConsumerWidget {
                       subtitle: 'เปลี่ยนชื่อ ไอคอน และสีบัญชี',
                     ),
                   ),
-                  PopupMenuItem(
-                    value: 'reminders',
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 12,
-                    ),
-                    enabled:
-                        !ref.watch(reminderControllerProvider).busy &&
-                        !ref.watch(reminderControllerProvider).loadError,
-                    child: _AccountMenuAction(
-                      icon: Icons.notifications_none_rounded,
-                      title: 'ตั้งค่าการแจ้งเตือน',
-                      subtitle: wording.reminderMenuHelp,
+                  if (!summary.isPaid)
+                    PopupMenuItem(
+                      value: 'reminders',
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       enabled:
                           !ref.watch(reminderControllerProvider).busy &&
                           !ref.watch(reminderControllerProvider).loadError,
+                      child: _AccountMenuAction(
+                        icon: Icons.notifications_none_rounded,
+                        title: 'ตั้งค่าการแจ้งเตือน',
+                        subtitle: wording.reminderMenuHelp,
+                        enabled:
+                            !ref.watch(reminderControllerProvider).busy &&
+                            !ref.watch(reminderControllerProvider).loadError,
+                      ),
                     ),
-                  ),
                 ],
                 icon: const Icon(Icons.more_vert, color: AppColors.primaryDark),
               ),
@@ -207,8 +208,10 @@ class DebtProgressCard extends ConsumerWidget {
           remaining: summary.remaining,
           direction: summary.debt.direction,
         ),
-        const SizedBox(height: 12),
-        DebtReminderBanner(summary: summary),
+        if (!summary.isPaid) ...[
+          const SizedBox(height: 12),
+          DebtReminderBanner(summary: summary),
+        ],
         if (summary.isPaid) ...[
           const SizedBox(height: 20),
           FullyPaidMessage(direction: summary.debt.direction),

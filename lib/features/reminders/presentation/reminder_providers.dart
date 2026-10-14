@@ -101,7 +101,11 @@ class ReminderController extends Notifier<ReminderState> {
       final summaries = await ref.read(debtRepositoryProvider).loadAll();
       if (!ref.mounted) return;
       for (final summary in summaries) {
-        final value = await repository.load(summary.debt.id);
+        var value = await repository.load(summary.debt.id);
+        if (summary.isPaid && value?.enabled == true) {
+          value = value!.withEnabled(false);
+          await repository.save(value);
+        }
         if (!ref.mounted) return;
         if (value != null) settingsByDebt[summary.debt.id] = value;
       }
@@ -201,7 +205,16 @@ class ReminderController extends Notifier<ReminderState> {
   Future<void> save(ReminderSettings settings) => _enqueue(() async {
     // Database errors propagate. Native scheduling errors are reported in state
     // by _sync, without presenting a committed write as failed.
-    await _write(() => ref.read(reminderRepositoryProvider).save(settings));
+    await _write(() async {
+      final summary = await ref
+          .read(debtRepositoryProvider)
+          .load(settings.debtId);
+      await ref
+          .read(reminderRepositoryProvider)
+          .save(
+            summary?.isPaid == true ? settings.withEnabled(false) : settings,
+          );
+    });
     await _sync();
   });
 

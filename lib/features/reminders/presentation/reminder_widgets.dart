@@ -44,6 +44,7 @@ class DebtReminderBanner extends ConsumerWidget {
   DebtWording get wording => DebtWording(summary.debt.direction);
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (summary.isPaid) return const SizedBox.shrink();
     final status = ref.watch(reminderControllerProvider);
     final settings = status.forDebt(summary.debt.id);
     final now = tz.TZDateTime.from(

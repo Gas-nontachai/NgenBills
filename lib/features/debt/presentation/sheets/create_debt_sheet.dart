@@ -11,6 +11,8 @@ import '../../../../core/widgets/inputs/app_amount_field.dart';
 import '../../../../core/widgets/feedback/app_snackbar.dart';
 import '../../../../core/widgets/sprout_illustration.dart';
 import '../providers/debt_providers.dart';
+import '../../domain/entities/debt.dart';
+import '../widgets/debt_direction_chip.dart';
 import '../../../reminders/presentation/reminder_providers.dart';
 
 import '../../../../core/widgets/sheets/app_bottom_sheet.dart';
@@ -36,6 +38,7 @@ class CreateDebtSheet extends ConsumerStatefulWidget {
 }
 
 class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
+  DebtDirection _direction = DebtDirection.payable;
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController(),
       _amount = TextEditingController(),
@@ -50,7 +53,10 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
 
   @override
   bool get dirty =>
-      _name.text.isNotEmpty || _amount.text.isNotEmpty || _note.text.isNotEmpty;
+      _name.text.isNotEmpty ||
+      _amount.text.isNotEmpty ||
+      _note.text.isNotEmpty ||
+      _direction != DebtDirection.payable;
 
   Future<void> _save() async {
     if (saving || confirming || !_form.currentState!.validate()) return;
@@ -66,6 +72,7 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
                 name: _name.text,
                 amountMinor: Money.parse(_amount.text)!,
                 note: _note.text,
+                direction: _direction,
               );
         },
       );
@@ -121,6 +128,13 @@ class _CreateDebtSheetState extends GuardedFormState<CreateDebtSheet> {
               ),
             ),
             const SizedBox(height: 28),
+            DebtDirectionToggle(
+              value: _direction,
+              onChanged: saving || busy
+                  ? null
+                  : (value) => setState(() => _direction = value),
+            ),
+            const SizedBox(height: 20),
             AppTextField(
               label: 'ชื่อหนี้',
               controller: _name,

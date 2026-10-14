@@ -16,6 +16,7 @@ import 'package:ngenbills/features/debt/domain/entities/debt.dart';
 import 'package:ngenbills/features/debt/domain/services/debt_summary.dart';
 import 'package:ngenbills/features/debt/presentation/providers/debt_providers.dart';
 import 'package:ngenbills/features/debt/presentation/widgets/half_donut_chart.dart';
+import 'package:ngenbills/features/debt/presentation/widgets/debt_direction_chip.dart';
 import 'package:ngenbills/features/payment/data/repositories/payment_repository.dart';
 import 'package:ngenbills/features/payment/domain/entities/payment.dart';
 import 'package:ngenbills/features/payment/presentation/widgets/payment_list_item.dart';
@@ -67,6 +68,7 @@ class TestDebts extends DebtRepository {
     required String name,
     required int amountMinor,
     String? note,
+    DebtDirection direction = DebtDirection.payable,
   }) async {
     store.writes++;
     final now = DateTime.now();
@@ -75,6 +77,7 @@ class TestDebts extends DebtRepository {
       name: name.trim(),
       initialAmountMinor: amountMinor,
       note: note,
+      direction: direction,
       createdAt: now,
       updatedAt: now,
     );
@@ -162,6 +165,58 @@ void main() {
     await tester.tap(target);
     await tester.pumpAndSettle();
   }
+
+  for (final direction in DebtDirection.values) {
+    testWidgets(
+      'Compact direction toggle creates ${direction.name} on a small screen',
+      (tester) async {
+        final store = Store();
+        await boot(tester, store, size: const Size(320, 568), scale: 1.8);
+        await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+        expect(
+          tester
+              .widget<DebtDirectionToggle>(find.byType(DebtDirectionToggle))
+              .value,
+          DebtDirection.payable,
+        );
+        if (direction == DebtDirection.receivable) {
+          await tap(tester, 'เจ้าหนี้');
+        }
+        await tester.enterText(find.byType(TextFormField).at(0), 'บัญชีใหม่');
+        await tester.enterText(find.byType(TextFormField).at(1), '1000');
+        await tap(tester, 'สร้างหนี้ก้อนแรก');
+        expect(store.debt!.direction, direction);
+        expect(
+          tester
+              .widget<DebtDirectionChip>(find.byType(DebtDirectionChip))
+              .direction,
+          direction,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('Changing only direction participates in discard confirmation', (
+    tester,
+  ) async {
+    final store = Store();
+    await boot(tester, store);
+    await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+    await tap(tester, 'เจ้าหนี้');
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('ละทิ้งข้อมูลที่กรอกไว้?'), findsOneWidget);
+    await tap(tester, 'ละทิ้งข้อมูล');
+    expect(store.debt, isNull);
+    await tap(tester, 'เพิ่มหนี้ก้อนแรก');
+    expect(
+      tester
+          .widget<DebtDirectionToggle>(find.byType(DebtDirectionToggle))
+          .value,
+      DebtDirection.payable,
+    );
+  });
 
   testWidgets('AppButton supports disabled and loading states', (tester) async {
     var count = 0;

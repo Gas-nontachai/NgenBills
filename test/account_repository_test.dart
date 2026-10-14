@@ -322,7 +322,7 @@ void main() {
     await ReminderRepository(persistent).completeOnboarding();
     var summary = (await repo.load())!;
     final paymentId = summary.payments.single.id;
-    expect(await (await persistent.instance).getVersion(), 1);
+    expect(await (await persistent.instance).getVersion(), 2);
     expect(summary.debt.iconKey, 'wallet');
     expect(summary.debt.colorKey, 'green');
     expect(summary.remaining, 9999);
@@ -353,6 +353,6 @@ void main() {
     expect(summary.borrowings.single.note, 'Borrowing note');
     expect(summary.borrowings.single.createdAt.isUtc, true);
     expect(await ReminderRepository(persistent).onboardingDone(), true);
-    expect(await (await persistent.instance).getVersion(), 1);
+    expect(await (await persistent.instance).getVersion(), 2);
   });
 }

@@ -53,6 +53,7 @@ class _MemoryDebts extends DebtRepository {
     required String name,
     required int amountMinor,
     String? note,
+    DebtDirection direction = DebtDirection.payable,
   }) async {
     final id = '${accounts.length}';
     accounts.add(
@@ -61,6 +62,7 @@ class _MemoryDebts extends DebtRepository {
         name: name.trim(),
         initialAmountMinor: amountMinor,
         note: note,
+        direction: direction,
         createdAt: DateTime(2026),
         updatedAt: DateTime(2026),
       ),
@@ -412,6 +414,7 @@ void main() {
   ) async {
     memory = _MemoryDebts()..accounts.clear();
     final container = await boot(tester, seed: false);
+    await tester.ensureVisible(find.text('เพิ่มหนี้ก้อนแรก'));
     await tester.tap(find.text('เพิ่มหนี้ก้อนแรก'));
     await tester.pumpAndSettle();
     expect(find.byType(CreateDebtSheet), findsOneWidget);

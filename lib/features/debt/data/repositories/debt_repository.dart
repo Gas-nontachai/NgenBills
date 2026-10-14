@@ -65,10 +65,7 @@ class DebtRepository {
         throw const AppException('บัญชีมีการเปลี่ยนแปลง กรุณาเปิดรายการใหม่');
       }
       final defaultId = await _resolveDefault(txn);
-      final orderedIds = [
-        ?defaultId,
-        ...ids.where((id) => id != defaultId),
-      ];
+      final orderedIds = [?defaultId, ...ids.where((id) => id != defaultId)];
       await txn.insert('app_preferences', {
         'key': 'account_order',
         'value': jsonEncode(orderedIds),
@@ -192,6 +189,7 @@ class DebtRepository {
     required String name,
     required int amountMinor,
     String? note,
+    DebtDirection direction = DebtDirection.payable,
   }) async {
     final clean = name.trim();
     if (clean.isEmpty || clean.length > 100) {
@@ -210,6 +208,7 @@ class DebtRepository {
       await txn.insert('debts', {
         'id': id,
         'name': clean,
+        'direction': direction.name,
         'initial_amount_minor': amountMinor,
         'note': note?.trim(),
         'created_at': now,

@@ -15,6 +15,7 @@ import 'debt_summary_row.dart';
 import 'fully_paid_message.dart';
 import '../providers/debt_providers.dart';
 import 'account_avatar.dart';
+import 'debt_direction_chip.dart';
 import '../sheets/add_borrowing_sheet.dart';
 import '../sheets/customize_account_sheet.dart';
 
@@ -129,9 +130,18 @@ class DebtProgressCard extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child:
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           accountHeader ??
-                          Text(summary.debt.name, style: AppTypography.title),
+                              Text(
+                                summary.debt.name,
+                                style: AppTypography.title,
+                              ),
+                          const SizedBox(height: 4),
+                          DebtDirectionChip(direction: summary.debt.direction),
+                        ],
+                      ),
                     ),
                     if (!stacked && accountNavigation != null) ...[
                       const SizedBox(width: 8),
